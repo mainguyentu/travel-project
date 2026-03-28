@@ -7,6 +7,9 @@ from app.repositories.interaction import InteractionRepository
 from app.services.interaction import InteractionService
 from app.schemas.interaction import RatingUpsert
 from app.utils.serializers import favorite_to_dict, rating_to_dict, destination_to_dict
+from app.core.events import EventType, build_event
+from app.core.config import settings
+from app.core.kafka_bus import publish_event
 
 router = APIRouter(prefix="/me", tags=["interaction"])
 
@@ -16,6 +19,14 @@ def favorite(destination_id: int, request: Request, db: Session = Depends(get_db
     service = InteractionService(db)
     fav = service.favorite(current_user.id, destination_id)
     db.commit()
+    publish_event(
+        settings.kafka_topic_favorite,
+        build_event(
+            EventType.FAVORITE_CREATED,
+            {"user_id": current_user.id, "destination_id": destination_id, "delta": 1},
+            request_id=request.state.request_id,
+        ),
+    )
     return response_success(favorite_to_dict(fav), {"request_id": request.state.request_id})
 
 
@@ -24,6 +35,14 @@ def unfavorite(destination_id: int, request: Request, db: Session = Depends(get_
     service = InteractionService(db)
     service.unfavorite(current_user.id, destination_id)
     db.commit()
+    publish_event(
+        settings.kafka_topic_favorite,
+        build_event(
+            EventType.FAVORITE_DELETED,
+            {"user_id": current_user.id, "destination_id": destination_id, "delta": -1},
+            request_id=request.state.request_id,
+        ),
+    )
     return response_success({}, {"request_id": request.state.request_id})
 
 
@@ -52,8 +71,22 @@ def upsert_rating(
     current_user=Depends(get_current_user),
 ):
     service = InteractionService(db)
+    old_rating = service.get_rating(current_user.id, destination_id)
     rating = service.upsert_rating(current_user.id, destination_id, payload.rating_score, payload.comment)
     db.commit()
+    publish_event(
+        settings.kafka_topic_rating,
+        build_event(
+            EventType.RATING_UPSERTED,
+            {
+                "user_id": current_user.id,
+                "destination_id": destination_id,
+                "old_score": old_rating.rating_score if old_rating else None,
+                "new_score": payload.rating_score,
+            },
+            request_id=request.state.request_id,
+        ),
+    )
     return response_success(rating_to_dict(rating), {"request_id": request.state.request_id})
 
 

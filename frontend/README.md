@@ -1,58 +1,181 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Frontend - Travel Project
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Frontend được xây dựng bằng Laravel (Blade + SSR) và tích hợp backend thông qua API Gateway.
 
-## About Laravel
+Mục tiêu:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Public pages cho khám phá điểm đến.
+- User pages cho hồ sơ, yêu thích, đánh giá.
+- Admin pages cho quản trị users/categories/destinations/stats.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 1. Tech Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP `^8.3`
+- Laravel `^13`
+- Vite `^8`
+- Tailwind CSS `^4`
+- Axios/Guzzle cho gọi API backend
 
-## Learning Laravel
+## 2. Cấu trúc thư mục chính
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- `app/Http/Controllers/`: điều phối request UI và gọi API backend.
+- `app/Services/ApiClient.php`: HTTP client gọi backend (`/api/v1/*`).
+- `resources/views/`: Blade templates cho public/user/admin.
+- `routes/web.php`: toàn bộ route UI.
+- `config/api.php`: cấu hình endpoint backend.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 3. Route map UI
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Public:
 
-## Agentic Development
+- `GET /`
+- `GET /destinations`
+- `GET /destinations/{destinationId}`
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Auth (guest):
+
+- `GET /login`, `POST /login`
+- `GET /register`, `POST /register`
+
+User (middleware `session.auth`):
+
+- `POST /logout`
+- `GET /profile`
+- `GET /my-favorites`
+- `POST /favorites/{destinationId}`
+- `DELETE /favorites/{destinationId}`
+- `PUT /ratings/{destinationId}`
+
+Admin (middleware `session.admin`, prefix `/admin`):
+
+- `GET /admin`
+- `GET /admin/users`
+- `GET /admin/categories`
+- `GET /admin/destinations`
+- `GET /admin/stats`
+
+## 4. Cấu hình API backend
+
+Frontend gọi backend qua config `config/api.php`:
+
+- `API_BASE_URL` (mặc định `http://localhost:8080`)
+- `API_VERSION` (mặc định `v1`)
+- `API_TIMEOUT`
+- `API_VERIFY_SSL`
+
+Mặc định `ApiClient` gọi endpoint theo mẫu:
+
+- `/api/{version}/{path}`
+
+Ví dụ:
+
+- `auth/login` -> `/api/v1/auth/login`
+- `destinations` -> `/api/v1/destinations`
+
+### 4.1 Redis response cache cho frontend
+
+`ApiClient` đã hỗ trợ cache response cho các request `GET` theo cấu hình trong `config/api.php`.
+
+- Store: `API_CACHE_STORE` (khuyến nghị `redis`)
+- Bật/tắt: `API_CACHE_ENABLED`
+- TTL mặc định: `API_CACHE_TTL`
+- TTL theo path:
+	- `API_CACHE_TTL_LANDING`
+	- `API_CACHE_TTL_DESTINATIONS`
+	- `API_CACHE_TTL_ADMIN_STATS`
+- Invalidate cache sau request ghi (`POST/PUT/DELETE`): `API_CACHE_INVALIDATE_ON_WRITE`
+
+Mặc định cache áp dụng cho endpoint public (`public/*`, `destinations*`) và không cache request có token để tránh cache dữ liệu cá nhân (`API_CACHE_AUTHENTICATED=false`).
+
+## 5. Chạy local
+
+### 5.1 Cài đặt
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+cd frontend
+composer install
+npm install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Tạo `.env`:
 
-## Contributing
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+PowerShell:
 
-## Code of Conduct
+```powershell
+Copy-Item .env.example .env
+php artisan key:generate
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 5.2 Chạy dev
 
-## Security Vulnerabilities
+Terminal 1:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan serve
+```
 
-## License
+Terminal 2:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+npm run dev
+```
+
+Mặc định UI: `http://127.0.0.1:8000`
+
+## 6. Build và test
+
+Build assets:
+
+```bash
+npm run build
+```
+
+Chạy test:
+
+```bash
+php artisan test
+```
+
+Hoặc:
+
+```bash
+composer run test
+```
+
+## 7. Luồng xác thực hiện tại
+
+- Login/Register gọi backend auth API.
+- `access_token` và `refresh_token` lưu trong session Laravel.
+- `ApiClient` tự gắn header Authorization khi có token trong session.
+- Logout gọi `auth/logout` và xóa session token phía frontend.
+
+## 8. Tích hợp với backend
+
+Khuyến nghị chạy backend bằng Docker Compose từ root project:
+
+```bash
+cd ..
+docker compose up --build
+```
+
+Sau đó quay lại frontend để chạy UI local như mục 5.
+
+Tài liệu backend liên quan:
+
+- `../backend/README.md`
+- `../backend/docs/API_REFERENCE.md`
+- `../backend/docs/ARCHITECTURE.md`
+
+## 9. Ghi chú phát triển
+
+- Ưu tiên tách logic gọi API ở `ApiClient` và giữ controller mỏng.
+- Giữ route naming nhất quán theo domain (`destinations`, `favorites`, `admin.*`).
+- Khi đổi contract API backend, cập nhật đồng thời:
+	- `app/Services/ApiClient.php`
+	- controller liên quan
+	- README này (nếu thay đổi behavior)

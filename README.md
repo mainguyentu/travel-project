@@ -1,36 +1,46 @@
 # Travel Project
 
-Hệ thống gợi ý và quản trị điểm đến du lịch theo kiến trúc FastAPI microservices + API Gateway.
+Hệ thống gợi ý và quản trị điểm đến du lịch, gồm:
 
-## Mục tiêu tài liệu
+- Backend FastAPI (service split qua API Gateway)
+- Frontend Laravel Blade (SSR) gọi API qua gateway
+- Hạ tầng local bằng Docker Compose (PostgreSQL, Redis, Nginx)
 
-README này là entrypoint cho toàn bộ dự án, dành cho:
-- Dev mới onboard nhanh
-- Dev backend/frontend cần chạy local
-- Reviewer cần nắm kiến trúc và route map
+README này là tài liệu tổng (entrypoint) để onboard nhanh toàn dự án.
 
-## Cấu trúc chính
+## 1. Cấu trúc workspace
 
-- `backend/`: FastAPI app, migrations Alembic, seed data, test
-- `frontend/`: mã client (đang ở trạng thái khởi tạo)
-- `docker-compose.yml`: môi trường local gồm Postgres, Redis, services, Nginx gateway
-- `nginx.conf`: route map từ gateway sang từng service
-- `design-docs/`: bộ tài liệu thiết kế (kiến trúc, API, DB, workflow, bảo mật...)
+- `backend/`: FastAPI app, Alembic migration, seed script, test.
+- `frontend/`: Laravel UI (public + user + admin), gọi API backend.
+- `docker-compose.yml`: stack local đầy đủ.
+- `nginx.conf`: route map gateway tới từng backend service.
+- `design-docs/`: bộ tài liệu phân tích thiết kế và chuẩn triển khai.
 
-## Kiến trúc runtime (local)
+## 2. Kiến trúc runtime (local)
+
+Các container chính:
 
 - `postgres` (PostgreSQL 16)
-- `redis` (cache + rate limit)
-- `migrate` (chạy `alembic upgrade head` + `python scripts/seed.py`)
+- `redis`
+- `migrate` (chạy migration + seed)
 - `auth-service`
 - `destination-service`
 - `interaction-service`
 - `admin-service`
-- `api-gateway` (Nginx, cổng `http://localhost:8080`)
+- `api-gateway` (Nginx, `http://localhost:8080`)
 
-## Quick start
+Gateway route map:
+
+- `/api/v1/auth/*` -> `auth-service`
+- `/api/v1/public/*` -> `destination-service`
+- `/api/v1/destinations/*` -> `destination-service`
+- `/api/v1/me/*` -> `interaction-service`
+- `/api/v1/admin/*` -> `admin-service`
+
+## 3. Quick Start (khuyến nghị)
 
 Yêu cầu:
+
 - Docker + Docker Compose
 
 Chạy toàn hệ thống:
@@ -39,43 +49,92 @@ Chạy toàn hệ thống:
 docker compose up --build
 ```
 
-Kiểm tra gateway:
+Kiểm tra nhanh:
 
 ```bash
 curl http://localhost:8080/
 curl http://localhost:8080/health
 ```
 
-Dừng hệ thống:
+Dừng:
 
 ```bash
 docker compose down
 ```
 
-## API Gateway route map
+## 4. Chạy tách frontend/backend
 
-- `/api/v1/auth/*` -> `auth-service`
-- `/api/v1/public/*` -> `destination-service`
-- `/api/v1/destinations/*` -> `destination-service`
-- `/api/v1/me/*` -> `interaction-service`
-- `/api/v1/admin/*` -> `admin-service`
+### 4.1 Backend
 
-Chi tiết endpoint xem trong `design-docs/02-api-design.md` và README backend.
+Xem hướng dẫn chi tiết tại `backend/README.md`.
 
-## Tài liệu liên quan
+Luồng cơ bản:
 
-- Backend setup và vận hành: `backend/README.md`
-- Frontend status và kế hoạch: `frontend/README.md`
-- Thiết kế hệ thống: `design-docs/README.md`
+```bash
+cd backend
+pip install -r requirements.txt
+alembic upgrade head
+python scripts/seed.py
+uvicorn app.main:app --reload
+```
 
-## Giả định và giới hạn hiện tại
+### 4.2 Frontend
 
-- Frontend chưa có hướng dẫn chạy chi tiết (chưa scaffold rõ ràng).
-- Seed mặc định tạo tài khoản mẫu để test local (không dùng cho production).
-- Giá trị secret mặc định trong compose chỉ phục vụ môi trường dev.
+Xem hướng dẫn chi tiết tại `frontend/README.md`.
 
-## Follow-up đề xuất
+Luồng cơ bản:
 
-- Bổ sung OpenAPI export/script để đồng bộ tài liệu API tự động.
-- Thêm CI check cho docs (markdown lint + link check).
-- Hoàn thiện frontend và cập nhật README tương ứng khi có stack cụ thể.
+```bash
+cd frontend
+composer install
+cp .env.example .env
+php artisan key:generate
+npm install
+php artisan serve
+npm run dev
+```
+
+Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`.
+
+## 5. URL và endpoint quan trọng
+
+- Frontend UI: `http://127.0.0.1:8000`
+- API Gateway: `http://localhost:8080`
+- Health gateway: `GET /health`
+- Swagger backend (monolith mode): `http://localhost:8000/docs`
+
+## 6. Bộ tài liệu chính
+
+- Tổng hợp backend: `backend/README.md`
+- API backend: `backend/docs/API_REFERENCE.md`
+- Kiến trúc backend: `backend/docs/ARCHITECTURE.md`
+- Tổng hợp frontend: `frontend/README.md`
+- Bộ design docs: `design-docs/README.md`
+
+## 7. Tài khoản seed local
+
+- Admin: `admin@alats.vn / Admin@123`
+- User: `user@alats.vn / User@123`
+
+Chỉ dùng cho môi trường dev/test local.
+
+## 8. Ghi chú vận hành và bảo mật
+
+- Không dùng secret mặc định ở staging/production.
+- Không commit thông tin nhạy cảm vào `.env`.
+- Gateway và route map là hợp đồng tích hợp giữa frontend và backend.
+
+## 9. Troubleshooting nhanh (Windows PowerShell)
+
+- Ưu tiên dùng `curl.exe` thay vì alias `curl` để tránh lỗi tham số.
+- Với request JSON, dùng `Invoke-RestMethod` sẽ ổn định hơn cho quoting.
+
+Ví dụ:
+
+```powershell
+curl.exe http://localhost:8080/health
+
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
+	-ContentType "application/json" `
+	-Body '{"email":"user@alats.vn","password":"User@123"}'
+```

@@ -16,6 +16,14 @@ class DestinationRepository:
         stmt = select(Destination).where(Destination.slug == slug)
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_by_ids(self, destination_ids: list[int]):
+        if not destination_ids:
+            return []
+        stmt = select(Destination).where(Destination.id.in_(destination_ids))
+        rows = self.db.execute(stmt).scalars().all()
+        mapping = {int(item.id): item for item in rows}
+        return [mapping[destination_id] for destination_id in destination_ids if destination_id in mapping]
+
     def list(
         self,
         category_slug: str | None,

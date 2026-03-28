@@ -8,6 +8,8 @@ if str(ROOT) not in sys.path:
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("REDIS_URL", "")
+os.environ.setdefault("JWT_SECRET", "test-only-jwt-secret-with-at-least-32-chars")
+os.environ.setdefault("CORS_ORIGINS", "[\"http://localhost:8000\"]")
 
 from app.db.base import Base
 from app.db.session import engine, SessionLocal

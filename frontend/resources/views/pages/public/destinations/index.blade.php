@@ -12,7 +12,7 @@
 
             <div class="destinations-layout">
                 <aside class="filter-panel panel">
-                    <h2 style="margin-top:0;">Bộ lọc</h2>
+                    <h2 class="filter-panel-title">Bộ lọc</h2>
                     <form action="{{ route('destinations.index') }}" method="GET">
                         <div class="filter-group">
                             <label for="category">Danh mục</label>
@@ -58,7 +58,7 @@
                         @forelse ($destinations as $destination)
                             @include('components.destination-card', ['destination' => $destination])
                         @empty
-                            <div class="empty-state" style="grid-column: 1 / -1;">
+                            <div class="empty-state destination-empty-state">
                                 <p>Chưa tìm thấy địa điểm phù hợp với bộ lọc hiện tại.</p>
                             </div>
                         @endforelse

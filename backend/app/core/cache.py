@@ -15,7 +15,13 @@ def get_redis():
         return None
     if _redis_client is None:
         try:
-            _redis_client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+            _redis_client = redis.Redis.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                max_connections=settings.redis_max_connections,
+                socket_connect_timeout=settings.redis_socket_connect_timeout,
+                socket_timeout=settings.redis_socket_timeout,
+            )
         except Exception as exc:
             logger.warning("Redis init failed: %s", exc)
             _redis_client = None

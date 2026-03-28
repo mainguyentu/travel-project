@@ -12,7 +12,7 @@
 
             <div class="profile-grid">
                 <section class="profile-panel panel">
-                    <h2 style="margin-top:0;">Thông tin tài khoản</h2>
+                    <h2 class="profile-panel-title">Thông tin tài khoản</h2>
 
                     <div class="profile-item">
                         <strong>Họ tên</strong>
@@ -29,8 +29,8 @@
                 </section>
 
                 <section class="profile-panel panel">
-                    <h2 style="margin-top:0;">Tác vụ nhanh</h2>
-                    <div style="display:grid; gap:0.65rem; margin-top:0.9rem;">
+                    <h2 class="profile-panel-title">Tác vụ nhanh</h2>
+                    <div class="profile-quick-actions">
                         <a href="{{ route('favorites.index') }}" class="btn-secondary">Xem danh sách yêu thích</a>
                         <a href="{{ route('destinations.index') }}" class="btn-secondary">Khám phá điểm đến</a>
                     </div>

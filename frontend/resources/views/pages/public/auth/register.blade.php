@@ -44,9 +44,9 @@
                 <button type="submit" class="btn-primary btn-block">Đăng ký</button>
             </form>
 
-            <p class="muted" style="text-align:center; margin-top:0.9rem;">
+            <p class="muted auth-switch-text">
                 Bạn đã có tài khoản?
-                <a href="{{ route('login') }}" style="color:#0e7490; font-weight:700; text-decoration:none;">Đăng nhập ngay</a>
+                <a href="{{ route('login') }}" class="auth-switch-link">Đăng nhập ngay</a>
             </p>
         </div>
     </section>
