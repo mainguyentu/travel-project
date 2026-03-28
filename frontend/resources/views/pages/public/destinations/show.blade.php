@@ -6,17 +6,16 @@
     <section class="public-shell">
         <div class="site-container detail-layout">
             <section class="detail-hero">
-                @dd($destination)
                 @if ($destination['img_url'] ?? null)
                     <img src="{{ $destination['img_url'] }}" alt="{{ $destination['name'] }}">
                 @endif
                 <div class="detail-overlay">
                     <div>
-                        <span class="badge badge-soft" style="background:rgba(255,255,255,0.86); color:#0f172a;">
+                        <span class="badge badge-soft detail-hero-badge">
                             {{ $destination['categories'][0]['name'] ?? 'Diem den' }}
                         </span>
-                        <h1 style="margin:0.55rem 0 0.35rem; font-size:clamp(1.8rem,3.5vw,3rem);">{{ $destination['name'] ?? 'N/A' }}</h1>
-                        <p style="margin:0; color:rgba(255,255,255,0.9);">
+                        <h1 class="detail-hero-title">{{ $destination['name'] ?? 'N/A' }}</h1>
+                        <p class="detail-hero-meta">
                             Đánh giá {{ number_format((float) ($destination['rating_avg'] ?? 0), 1) }}/5 ·
                             {{ $destination['review_count'] ?? 0 }} reviews ·
                             {{ str_repeat('$', $destination['price_level'] ?? 1) }}
@@ -30,18 +29,18 @@
                     <h2>Thông tin tổng quan</h2>
                     <p class="muted">{{ $destination['description'] ?? 'Chưa có mô tả cho địa chỉ này.' }}</p>
 
-                    <div class="meta-grid" style="margin-top:0.8rem;">
-                        <div class="public-card" style="padding:0.8rem;">
+                    <div class="meta-grid detail-meta-grid">
+                        <div class="public-card detail-meta-card">
                             <strong>Danh mục</strong>
-                            <p class="muted" style="margin:0.35rem 0 0;">{{ $destination['categories'][0]['name'] ?? 'N/A' }}</p>
+                            <p class="muted detail-meta-value">{{ $destination['categories'][0]['name'] ?? 'N/A' }}</p>
                         </div>
-                        <div class="public-card" style="padding:0.8rem;">
+                        <div class="public-card detail-meta-card">
                             <strong>Địa chỉ</strong>
-                            <p class="muted" style="margin:0.35rem 0 0;">{{ $destination['address'] ?? 'Chưa cập nhật' }}</p>
+                            <p class="muted detail-meta-value">{{ $destination['address'] ?? 'Chưa cập nhật' }}</p>
                         </div>
-                        <div class="public-card" style="padding:0.8rem;">
+                        <div class="public-card detail-meta-card">
                             <strong>Mức giá</strong>
-                            <p class="muted" style="margin:0.35rem 0 0;">{{ str_repeat('$', $destination['price_level'] ?? 1) }}</p>
+                            <p class="muted detail-meta-value">{{ str_repeat('$', $destination['price_level'] ?? 1) }}</p>
                         </div>
                     </div>
                 </article>
@@ -53,7 +52,7 @@
                             src="{{ $destination['url_map'] }}"
                             loading="lazy"
                             referrerpolicy="no-referrer-when-downgrade"
-                            style="width:100%;height:360px;border:0;border-radius:14px;"
+                            class="detail-map-frame"
                             title="Map of {{ $destination['name'] }}"
                         ></iframe>
                     </article>
@@ -95,7 +94,7 @@
                     </article>
                 @else
                     <article class="detail-panel panel">
-                        <p>Vui lòng <a href="{{ route('login') }}" style="color:#0e7490;font-weight:700;">đăng nhập</a> để gửi đánh giá.</p>
+                        <p>Vui lòng <a href="{{ route('login') }}" class="detail-login-link">đăng nhập</a> để gửi đánh giá.</p>
                     </article>
                 @endif
             </section>

@@ -17,9 +17,11 @@ Backend triển khai theo mô hình module/service với FastAPI, SQLAlchemy, Al
 
 - `app/main.py`: app tổng hợp toàn bộ router (monolith mode).
 - `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin).
+- `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin, analytics).
 - `app/routers/`: endpoint theo domain.
 - `app/services/`, `app/repositories/`: business logic và data access.
 - `app/db/`: models, session, base.
+- `app/worker/`: Kafka consumer xử lý analytics/search bất đồng bộ.
 - `alembic/`: migration scripts.
 - `scripts/seed.py`: dữ liệu mẫu local.
 - `tests/`: test backend.
@@ -41,11 +43,21 @@ Copy-Item .env.example .env
 Các biến chính:
 
 - `DATABASE_URL`
+- `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, `DB_POOL_RECYCLE`
 - `JWT_SECRET`, `JWT_ISSUER`, `JWT_ACCESS_TTL_MIN`, `JWT_REFRESH_TTL_DAYS`
 - `CORS_ORIGINS`
-- `REDIS_URL`
+- `REDIS_URL`, `REDIS_MAX_CONNECTIONS`, `REDIS_SOCKET_CONNECT_TIMEOUT`, `REDIS_SOCKET_TIMEOUT`
 - `CACHE_TTL_SECONDS`
 - `RATE_LIMIT_IP_PER_MIN`, `RATE_LIMIT_USER_PER_MIN`
+- `KAFKA_ENABLED`, `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC_*`, `KAFKA_DLQ_TOPIC`, `KAFKA_CONSUMER_GROUP`
+- `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTICSEARCH_INDEX`, `SEARCH_USE_ELASTICSEARCH`
+- `WORKER_RETRY_MAX`, `WORKER_RETRY_BACKOFF_SECONDS`
+
+Lưu ý bảo mật cấu hình:
+
+- `JWT_SECRET` bắt buộc tối thiểu 32 ký tự.
+- `CORS_ORIGINS` bắt buộc là whitelist origin cụ thể (không cho phép `*`).
+- `CORS_ORIGINS` hỗ trợ định dạng JSON array hoặc chuỗi ngăn cách dấu phẩy.
 
 ## Chạy local (không Docker)
 
@@ -86,6 +98,7 @@ uvicorn app.apps.auth_service:app --reload --port 8001
 uvicorn app.apps.destination_service:app --reload --port 8002
 uvicorn app.apps.interaction_service:app --reload --port 8003
 uvicorn app.apps.admin_service:app --reload --port 8004
+uvicorn app.apps.analytics_service:app --reload --port 8005
 ```
 
 ## Chạy full stack với Docker Compose (khuyến nghị)
@@ -105,6 +118,15 @@ Route map qua gateway:
 - `/api/v1/destinations/*` -> `destination-service`
 - `/api/v1/me/*` -> `interaction-service`
 - `/api/v1/admin/*` -> `admin-service`
+- `/api/v1/analytics/*` -> `analytics-service`
+
+### Worker service
+
+Consumer xử lý event Kafka (favorite/rating/destination/view):
+
+```bash
+python -m app.worker.consumer
+```
 
 ## Kiểm tra nhanh
 

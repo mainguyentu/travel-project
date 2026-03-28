@@ -41,33 +41,3 @@
     </div>
 @endsection
 
-@push('styles')
-    <style>
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .full-width {
-            width: 100%;
-        }
-
-        .actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .btn-small {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-
-        code {
-            background: #f5f5f5;
-            padding: 0.25rem 0.5rem;
-            border-radius: 3px;
-        }
-    </style>
-@endpush

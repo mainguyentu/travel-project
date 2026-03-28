@@ -14,6 +14,9 @@ from app.services.destinations import DestinationService
 from app.services.admin import AdminService
 from app.utils.serializers import category_to_dict, destination_to_dict, user_to_dict
 from app.core.cache import cache_get, cache_set, key_admin_top, invalidate_admin_stats_cache, invalidate_list_cache, invalidate_public_landing_cache
+from app.core.config import settings
+from app.core.events import EventType, build_event
+from app.core.kafka_bus import publish_event
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -110,6 +113,14 @@ def create_destination(payload: DestinationCreate, request: Request, db: Session
     data = payload.model_dump(exclude={"category_ids"})
     destination = service.create(data, payload.category_ids)
     db.commit()
+    publish_event(
+        settings.kafka_topic_destination,
+        build_event(
+            EventType.DESTINATION_CREATED,
+            {"destination": destination_to_dict(destination)},
+            request_id=request.state.request_id,
+        ),
+    )
     return response_success(destination_to_dict(destination), {"request_id": request.state.request_id})
 
 
@@ -119,6 +130,14 @@ def update_destination(destination_id: int, payload: DestinationUpdate, request:
     data = payload.model_dump(exclude_unset=True, exclude={"category_ids"})
     destination = service.update(destination_id, data, payload.category_ids)
     db.commit()
+    publish_event(
+        settings.kafka_topic_destination,
+        build_event(
+            EventType.DESTINATION_UPDATED,
+            {"destination": destination_to_dict(destination)},
+            request_id=request.state.request_id,
+        ),
+    )
     return response_success(destination_to_dict(destination), {"request_id": request.state.request_id})
 
 
@@ -127,6 +146,14 @@ def delete_destination(destination_id: int, request: Request, db: Session = Depe
     service = DestinationService(db)
     service.delete(destination_id)
     db.commit()
+    publish_event(
+        settings.kafka_topic_destination,
+        build_event(
+            EventType.DESTINATION_DELETED,
+            {"destination_id": destination_id},
+            request_id=request.state.request_id,
+        ),
+    )
     return response_success({}, {"request_id": request.state.request_id})
 
 

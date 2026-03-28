@@ -22,4 +22,27 @@ return [
     
     // CORS and SSL verification
     'verify_ssl' => env('API_VERIFY_SSL', true),
+
+    // Frontend response cache (Redis)
+    'cache' => [
+        'enabled' => env('API_CACHE_ENABLED', true),
+        'store' => env('API_CACHE_STORE', env('CACHE_STORE', 'redis')),
+        'default_ttl' => env('API_CACHE_TTL', 120),
+        'path_ttl' => [
+            'public/landing' => env('API_CACHE_TTL_LANDING', 300),
+            'destinations' => env('API_CACHE_TTL_DESTINATIONS', 180),
+            'admin/stats' => env('API_CACHE_TTL_ADMIN_STATS', 60),
+        ],
+        'public_path_prefixes' => [
+            'public/',
+            'destinations',
+        ],
+        'cache_authenticated' => env('API_CACHE_AUTHENTICATED', false),
+        'authenticated_path_prefixes' => [
+            'admin/stats',
+        ],
+        'invalidate_on_write' => env('API_CACHE_INVALIDATE_ON_WRITE', true),
+        'key_prefix' => env('API_CACHE_PREFIX', 'frontend:api-response'),
+        'registry_key' => env('API_CACHE_REGISTRY_KEY', 'frontend:api-response:keys'),
+    ],
 ];

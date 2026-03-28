@@ -1,5 +1,5 @@
 ﻿from app.app_factory import create_app
-from app.routers import auth, public, destinations, interaction, admin
+from app.routers import auth, public, destinations, interaction, admin, analytics
 
 app = create_app([
     auth.router,
@@ -7,4 +7,5 @@ app = create_app([
     destinations.router,
     interaction.router,
     admin.router,
+    analytics.router,
 ])

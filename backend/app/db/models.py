@@ -81,6 +81,7 @@ class Destination(Base):
 
     categories = relationship("CategoryDestination", back_populates="destination", cascade="all, delete-orphan")
     insight = relationship("DestinationInsight", back_populates="destination", uselist=False, cascade="all, delete-orphan")
+    metrics = relationship("DestinationMetric", back_populates="destination", uselist=False, cascade="all, delete-orphan")
 
 
 class CategoryDestination(Base):
@@ -124,3 +125,16 @@ class Rating(Base):
     comment = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class DestinationMetric(Base):
+    __tablename__ = "destination_metrics"
+
+    destination_id = Column(IDType, ForeignKey("destinations.id"), primary_key=True)
+    favorite_count = Column(BigInteger, nullable=False, default=0)
+    rating_count = Column(BigInteger, nullable=False, default=0)
+    rating_sum = Column(BigInteger, nullable=False, default=0)
+    view_count = Column(BigInteger, nullable=False, default=0)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    destination = relationship("Destination", back_populates="metrics")
