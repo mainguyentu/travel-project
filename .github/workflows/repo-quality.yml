@@ -54,6 +54,12 @@ jobs:
       - name: Install frontend dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Generate app key
+        run: php artisan key:generate --force
+
       - name: Run frontend feature tests with coverage
         run: |
           mkdir -p build/logs
