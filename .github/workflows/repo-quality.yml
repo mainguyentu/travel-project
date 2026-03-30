@@ -57,6 +57,7 @@ jobs:
       - name: Run frontend feature tests with coverage
         run: |
           mkdir -p build/logs
+          vendor/bin/phpunit --list-tests
           phpdbg -qrr vendor/bin/phpunit --configuration phpunit.xml --testsuite Feature --coverage-clover build/logs/clover.xml
 
       - name: Upload frontend coverage artifact
