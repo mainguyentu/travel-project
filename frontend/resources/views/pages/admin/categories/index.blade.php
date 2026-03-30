@@ -6,8 +6,12 @@
     <div class="admin-section">
         <div class="section-header">
             <h2>Categories Management</h2>
-            <a href="#" class="btn-primary">Add Category</a>
+            <span class="muted">Danh sách chỉ đọc theo dữ liệu API.</span>
         </div>
+
+        @if ($categoriesError)
+            <div class="alert alert-danger" role="alert">{{ $categoriesError }}</div>
+        @endif
 
         <table class="admin-table full-width">
             <thead>
@@ -27,14 +31,11 @@
                         <td><code>{{ $category['slug'] }}</code></td>
                         <td>{{ Str::limit($category['description'] ?? '', 50) }}</td>
                         <td>
-                            <div class="actions">
-                                <a href="#" class="btn-small">Edit</a>
-                                <button class="btn-small btn-danger" data-category-id="{{ $category['id'] }}">Delete</button>
-                            </div>
+                            <span class="status active">Xem thông tin</span>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5">No categories found</td></tr>
+                    <tr><td colspan="5">Không có danh mục để hiển thị.</td></tr>
                 @endforelse
             </tbody>
         </table>

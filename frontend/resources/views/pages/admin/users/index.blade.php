@@ -6,8 +6,12 @@
     <div class="admin-section">
         <div class="section-header">
             <h2>Users Management</h2>
-            <a href="#" class="btn-primary">Add User</a>
+            <span class="muted">Danh sách chỉ đọc theo dữ liệu API.</span>
         </div>
+
+        @if ($usersError)
+            <div class="alert alert-danger" role="alert">{{ $usersError }}</div>
+        @endif
 
         <table class="admin-table full-width">
             <thead>
@@ -35,14 +39,11 @@
                             </span>
                         </td>
                         <td>
-                            <div class="actions">
-                                <a href="#" class="btn-small">Edit</a>
-                                <button class="btn-small btn-danger" data-user-id="{{ $user['id'] }}">Delete</button>
-                            </div>
+                            <span class="status active">Xem thông tin</span>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">No users found</td></tr>
+                    <tr><td colspan="6">Không có người dùng để hiển thị.</td></tr>
                 @endforelse
             </tbody>
         </table>

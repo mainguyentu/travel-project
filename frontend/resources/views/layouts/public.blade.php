@@ -7,15 +7,17 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-<body>
-    @include('components.navbar')
-    
-    <main>
-        @yield('content')
-    </main>
-    
-    @include('components.footer')
-    
+<body class="public-body">
+    <div class="site-shell">
+        @include('components.navbar')
+
+        <main class="public-main">
+            @yield('content')
+        </main>
+
+        @include('components.footer')
+    </div>
+
     @stack('scripts')
 </body>
 </html>

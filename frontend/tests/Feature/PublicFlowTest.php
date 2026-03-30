@@ -72,18 +72,8 @@ class PublicFlowTest extends TestCase
         });
     }
 
-    public function test_destination_detail_404_when_api_returns_failure(): void
+    public function test_destination_detail_route_is_not_available(): void
     {
-        $this->mock(ApiClient::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('get')
-                ->once()
-                ->with('destinations/999')
-                ->andReturn([
-                    'success' => false,
-                    'error' => 'Not found',
-                ]);
-        });
-
         $response = $this->get('/destinations/999');
 
         $response->assertNotFound();

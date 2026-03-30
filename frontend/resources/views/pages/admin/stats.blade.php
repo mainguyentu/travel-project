@@ -4,6 +4,17 @@
 
 @section('content')
     <div class="stats-container">
+        @if (!empty($statsErrors))
+            <div class="alert alert-danger" role="alert">
+                <strong>Không thể tải đầy đủ dữ liệu thống kê:</strong>
+                <ul>
+                    @foreach ($statsErrors as $message)
+                        <li>{{ $message }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <!-- Request Statistics -->
         <section class="stats-section">
             <h2>Request Statistics</h2>

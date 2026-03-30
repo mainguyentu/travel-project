@@ -5,7 +5,7 @@
         is_array($sessionUser) && (($sessionUser['role'] ?? '') === 'admin' || ($sessionUser['is_admin'] ?? false));
 @endphp
 
-<nav class="site-nav">
+<nav class="site-nav" aria-label="Điều hướng chính">
     <div class="site-container">
         <div class="site-nav-inner">
             <a href="{{ route('home') }}" class="brand" aria-label="Alats Travel">
@@ -16,7 +16,7 @@
                 </span>
             </a>
 
-            <ul class="site-nav-links">
+            <ul class="site-nav-links" role="list">
                 <li><a href="{{ route('home') }}">Trang chủ</a></li>
                 <li><a href="{{ route('destinations.index') }}">Điểm đến</a></li>
                 <li><a href="{{ route('favorites.index') }}">Yêu thích</a></li>
@@ -26,20 +26,26 @@
             <div class="site-nav-actions">
                 @if ($isAuthenticated)
                     <div class="user-menu" data-user-menu>
-                        <button class="user-menu-btn" type="button" data-user-menu-toggle>
+                        <button
+                            class="user-menu-btn"
+                            type="button"
+                            data-user-menu-toggle
+                            aria-expanded="false"
+                            aria-controls="user-menu-list"
+                            aria-haspopup="menu">
                             {{ $sessionUser['name'] ?? 'Tai khoan' }}
                         </button>
-                        <div class="user-menu-list" data-user-menu-list>
-                            <a href="{{ route('profile.index') }}">Hồ sơ</a>
-                            <a href="{{ route('favorites.index') }}">Yêu thích</a>
+                        <div class="user-menu-list" id="user-menu-list" data-user-menu-list role="menu">
+                            <a href="{{ route('profile.index') }}" role="menuitem">Hồ sơ</a>
+                            <a href="{{ route('favorites.index') }}" role="menuitem">Yêu thích</a>
                             @if ($isAdmin)
                                 <hr>
-                                <a href="{{ route('admin.dashboard') }}">Dashboard Admin</a>
+                                <a href="{{ route('admin.dashboard') }}" role="menuitem">Dashboard Admin</a>
                             @endif
                             <hr>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
-                                <button type="submit">Đăng xuất</button>
+                                <button type="submit" role="menuitem">Đăng xuất</button>
                             </form>
                         </div>
                     </div>
@@ -49,12 +55,18 @@
                 @endif
             </div>
 
-            <button class="mobile-nav-toggle" type="button" aria-label="Toggle navigation" data-mobile-toggle>
+            <button
+                class="mobile-nav-toggle"
+                type="button"
+                aria-label="Mở menu điều hướng"
+                aria-expanded="false"
+                aria-controls="mobile-nav"
+                data-mobile-toggle>
                 ☰
             </button>
         </div>
 
-        <div class="mobile-nav" data-mobile-nav>
+        <div class="mobile-nav" id="mobile-nav" data-mobile-nav hidden>
             <a href="{{ route('home') }}">Trang chủ</a>
             <a href="{{ route('destinations.index') }}">Điểm đến</a>
             @if ($isAuthenticated)

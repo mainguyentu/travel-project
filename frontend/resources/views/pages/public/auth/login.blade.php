@@ -7,6 +7,12 @@
         <div class="auth-card panel">
             <h1>Đăng nhập</h1>
             <p class="muted">Tiếp tục hành trình khám phá của bạn.</p>
+
+            @if (session('success'))
+                <div class="alert alert-success" role="status">
+                    {{ session('success') }}
+                </div>
+            @endif
             
             @if ($errors->any())
                 <div class="alert alert-error" role="alert">
@@ -23,12 +29,22 @@
 
                 <div class="form-group">
                     <label for="email">Email</label>
-                    <input class="public-input" type="email" id="email" name="email" value="{{ old('email') }}" required>
+                    <input class="public-input @error('email') is-invalid @enderror" type="email" id="email" name="email"
+                        value="{{ old('email') }}" required aria-invalid="@error('email') true @else false @enderror"
+                        aria-describedby="email-error">
+                    @error('email')
+                        <p class="field-error" id="email-error">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input class="public-input" type="password" id="password" name="password" required>
+                    <input class="public-input @error('password') is-invalid @enderror" type="password" id="password"
+                        name="password" required aria-invalid="@error('password') true @else false @enderror"
+                        aria-describedby="password-error">
+                    @error('password')
+                        <p class="field-error" id="password-error">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <button type="submit" class="btn-primary btn-block">Đăng nhập</button>

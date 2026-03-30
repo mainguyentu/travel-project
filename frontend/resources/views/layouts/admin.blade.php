@@ -4,15 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title') - Admin</title>
+    <title>@yield('page-title') - Admin</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="admin-layout">
     <div class="admin-wrapper">
         <!-- Sidebar Navigation -->
-        <aside class="admin-sidebar">
-            @include('components.admin-sidebar')
-        </aside>
+        @include('components.admin-sidebar')
 
         <!-- Main Content -->
         <section class="admin-content">

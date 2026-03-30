@@ -41,7 +41,13 @@ class AuthController extends Controller
         ]);
 
         if (!($response['success'] ?? false)) {
-            return back()->withErrors(['email' => $response['error'] ?? 'Thông tin xác thực không hợp lệ']);
+            $apiError = $response['error'] ?? 'Thông tin xác thực không hợp lệ';
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors([
+                    'email' => 'Email hoặc mật khẩu chưa đúng.',
+                    'api' => $apiError,
+                ]);
         }
 
         // Store tokens in session
@@ -93,10 +99,17 @@ class AuthController extends Controller
         ]);
 
         if (!($response['success'] ?? false)) {
-            return back()->withErrors($response['details'] ?? ['email' => ($response['error'] ?? 'Registration failed')]);
+            $details = $response['details'] ?? [];
+            $errors = is_array($details) && $details !== []
+                ? $details
+                : ['api' => ($response['error'] ?? 'Không thể đăng ký tài khoản lúc này.')];
+
+            return back()
+                ->withInput($request->except('password', 'password_confirmation'))
+                ->withErrors($errors);
         }
 
-        return redirect('/login')->with('success', 'Đăng ký thành công. vui lòng đăng nhập !');
+        return redirect('/login')->with('success', 'Đăng ký thành công. Vui lòng đăng nhập.');
     }
 
     /**
