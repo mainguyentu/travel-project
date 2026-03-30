@@ -1,6 +1,7 @@
 # Frontend - Travel Project
 
 Frontend được xây dựng bằng Laravel (Blade + SSR) và tích hợp backend thông qua API Gateway.
+Trang destinations sử dụng popup chi tiết (render bằng JS) thay cho route chi tiết riêng.
 
 Mục tiêu:
 
@@ -30,7 +31,12 @@ Public:
 
 - `GET /`
 - `GET /destinations`
-- `GET /destinations/{destinationId}`
+
+Ghi chú luồng chi tiết destination:
+
+- Người dùng xem chi tiết ngay tại trang `GET /destinations` thông qua popup.
+- Popup gọi trực tiếp API `GET /api/v1/destinations/{destinationId}` bằng JavaScript để lấy dữ liệu chi tiết.
+- Không còn route UI riêng cho trang `GET /destinations/{destinationId}`.
 
 Auth (guest):
 

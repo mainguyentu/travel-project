@@ -4,49 +4,39 @@
             <img src="{{ $destination['img_url'] }}" alt="{{ $destination['name'] }}">
         @else
             <div class="card-image-placeholder">
-                <span class="placeholder-text">No image</span>
+                <span>No image</span>
             </div>
         @endif
 
-        <span class="destination-card-rating">⭐ {{ number_format((float) ($destination['rating_avg'] ?? 0), 1) }}</span>
+        <div class="overlay"></div>
 
-        @if (session()->has('access_token'))
-            <button class="favorite-btn @if($destination['is_favorited'] ?? false) favorited @endif" 
-                    data-destination-id="{{ $destination['id'] }}">
-                ❤
-            </button>
-        @endif
+        <div class="destination-card-rating">
+            ⭐ {{ number_format((float) ($destination['rating_avg'] ?? 0), 1) }}
+        </div>
     </div>
 
     <div class="destination-card-body">
         <h3 class="destination-card-title">
-            <a href="{{ route('destinations.show', $destination['id']) }}">
-                {{ $destination['name'] }}
-            </a>
+            {{ $destination['name'] }}
         </h3>
 
-        <p class="destination-card-subtitle">📍 {{ $destination['address'] ?? 'Địa chỉ không xác định' }}</p>
-
-        <div class="destination-card-meta">
-            <span class="rating">
-                Đánh giá: {{ number_format((float) ($destination['rating_avg'] ?? 0), 1) }}/5
-            </span>
-            <span class="price-level">
-                @php
-                    $priceLevels = ['miễn phí' => '$', 'thấp' => '$', 'trung bình' => '$$', 'cao' => '$$$'];
-                @endphp
-                Mức giá: {{ $priceLevels[$destination['price_level'] ?? 'trung bình'] ?? '$$' }}
-            </span>
-        </div>
-
         <p class="destination-card-description">
-            {{ Str::limit($destination['description'] ?? '', 100) }}
+            {{ Str::limit($destination['description'] ?? 'Chưa có mô tả', 80) }}
         </p>
 
-        <div class="card-action-row">
-            <a href="{{ route('destinations.show', $destination['id']) }}" class="btn-primary">
-                Xem chi tiết
-            </a>
+        <div class="destination-card-footer">
+            <span class="time">⏱ {{ $destination['open_hour'] ?? 'N/A' }}</span>
+
+            <div class="card-action-row">
+                <button
+                    type="button"
+                    class="quick-view-btn"
+                    data-open-destination
+                    data-destination-id="{{ $destination['id'] }}"
+                    aria-label="Chi tiết {{ $destination['name'] }}">
+                    Chi tiết
+                </button>
+            </div>
         </div>
     </div>
 </article>

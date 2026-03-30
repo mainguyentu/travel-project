@@ -1,9 +1,9 @@
-<aside class="admin-sidebar">
+<aside class="admin-sidebar" aria-label="Sidebar quản trị">
     <div class="sidebar-header">
         <h2 class="sidebar-title">Admin Panel</h2>
     </div>
 
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="Điều hướng quản trị">
         <a href="{{ route('admin.dashboard') }}" class="nav-item @if(request()->routeIs('admin.dashboard')) active @endif">
             📊 Dashboard
         </a>
@@ -26,7 +26,7 @@
     </nav>
 
     <div class="sidebar-footer">
-        <a href="{{ route('home') }}" class="sidebar-link-text">← Quay Lại Frontend</a>
+        <a href="{{ route('home') }}" class="sidebar-link-text">← Quay lại trang web</a>
     </div>
 </aside>
 

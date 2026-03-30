@@ -4,6 +4,17 @@
 
 @section('content')
     <div class="dashboard-container">
+        @if (!empty($dashboardErrors))
+            <div class="alert alert-danger" role="alert">
+                <strong>Dashboard đang thiếu một phần dữ liệu:</strong>
+                <ul>
+                    @foreach ($dashboardErrors as $message)
+                        <li>{{ $message }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <!-- KPI Cards -->
         <div class="kpi-grid">
             <div class="kpi-card">
@@ -40,10 +51,10 @@
                         @forelse ($stats['top_favorites'] ?? [] as $item)
                             <tr>
                                 <td>{{ $item['name'] }}</td>
-                                <td>{{ $item['favorite_count'] }}</td>
+                                <td>{{ $item['favorite_count'] ?? 0 }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="2">No data</td></tr>
+                            <tr><td colspan="2">Chưa có dữ liệu yêu thích.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -66,7 +77,7 @@
                                 <td>{{ $item['rating_avg'] }}/5</td>
                             </tr>
                         @empty
-                            <tr><td colspan="2">No data</td></tr>
+                            <tr><td colspan="2">Chưa có dữ liệu đánh giá.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -86,10 +97,10 @@
                         @forelse ($stats['top_views'] ?? [] as $item)
                             <tr>
                                 <td>{{ $item['name'] }}</td>
-                                <td>{{ $item['view_count'] }}</td>
+                                <td>{{ $item['view_count'] ?? 0 }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="2">No data</td></tr>
+                            <tr><td colspan="2">Chưa có dữ liệu lượt xem.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

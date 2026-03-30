@@ -20,10 +20,12 @@ class HomeController extends Controller
     {
         $landing = $this->apiClient->get('public/landing');
         $landingData = $landing['data'] ?? [];
+        $landingFailed = ($landing['success'] ?? true) === false;
 
         return view('pages.public.home', [
             'featured' => $landingData['highlights'] ?? [],
             'categories' => $landingData['categories'] ?? [],
+            'homeError' => $landingFailed ? ($landing['error'] ?? 'Không thể tải dữ liệu trang chủ.') : null,
         ]);
     }
 }

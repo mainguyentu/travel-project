@@ -6,8 +6,12 @@
     <div class="admin-section">
         <div class="section-header">
             <h2>Destinations Management</h2>
-            <a href="#" class="btn-primary">Add Destination</a>
+            <span class="muted">Danh sách chỉ đọc theo dữ liệu API.</span>
         </div>
+
+        @if ($destinationsError)
+            <div class="alert alert-danger" role="alert">{{ $destinationsError }}</div>
+        @endif
 
         <table class="admin-table full-width">
             <thead>
@@ -35,15 +39,11 @@
                         </td>
                         <td>{{ $destination['view_count'] ?? 0 }}</td>
                         <td>
-                            <div class="actions">
-                                <a href="{{ route('destinations.show', $destination['id']) }}" class="btn-small">View</a>
-                                <a href="#" class="btn-small">Edit</a>
-                                <button class="btn-small btn-danger" data-destination-id="{{ $destination['id'] }}">Delete</button>
-                            </div>
+                            <span class="muted">Xem nhanh tại danh sách public</span>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7">No destinations found</td></tr>
+                    <tr><td colspan="7">Không có điểm đến để hiển thị.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -22,7 +22,7 @@ class DestinationController extends Controller
         $category = request('category_slug', request('category'));
         $priceLevel = request('price_level');
         $rating = request('rating_min', request('rating'));
-        $keyword = request('keyword');
+        $keyword = request('keyword', request('search'));
         $sort = request('sort');
 
         $query = ['page' => $page, 'limit' => 20];
@@ -44,6 +44,7 @@ class DestinationController extends Controller
         }
 
         $response = $this->apiClient->get('destinations', $query);
+        $requestFailed = ($response['success'] ?? true) === false;
         $meta = $response['meta'] ?? [];
         $pageValue = (int) ($meta['page'] ?? 1);
         $limitValue = (int) ($meta['limit'] ?? 20);
@@ -62,24 +63,8 @@ class DestinationController extends Controller
                 'total' => $total,
             ],
             'categories' => $landingData['categories'] ?? [],
+            'listError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách điểm đến.') : null,
         ]);
     }
 
-    /**
-     * Display destination detail
-     */
-    public function show(int $destinationId)
-    {
-        $response = $this->apiClient->get("destinations/{$destinationId}");
-
-        if (!($response['success'] ?? false)) {
-            abort(404);
-        }
-
-        $destination = $response['data'];
-
-        return view('pages.public.destinations.show', [
-            'destination' => $destination,
-        ]);
-    }
 }

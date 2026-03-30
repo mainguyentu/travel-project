@@ -12,7 +12,6 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Destination routes
 Route::get('/destinations', [DestinationController::class, 'index'])->name('destinations.index');
-Route::get('/destinations/{destinationId}', [DestinationController::class, 'show'])->name('destinations.show');
 
 // Auth routes
 Route::middleware('guest')->group(function () {

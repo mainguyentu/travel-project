@@ -33,9 +33,11 @@ class ProfileController extends Controller
     public function favorites()
     {
         $response = $this->apiClient->get('me/favorites');
+        $requestFailed = ($response['success'] ?? true) === false;
 
         return view('pages.public.favorites', [
             'favorites' => $response['data'] ?? [],
+            'favoritesError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách yêu thích.') : null,
         ]);
     }
 
@@ -50,6 +52,10 @@ class ProfileController extends Controller
             return response()->json($response);
         }
 
+        if (($response['success'] ?? false) === false) {
+            return back()->withErrors(['favorites' => $response['error'] ?? 'Không thể thêm vào yêu thích.']);
+        }
+
         return back()->with('success', 'Đã thêm vào yêu thích');
     }
 
@@ -62,6 +68,10 @@ class ProfileController extends Controller
 
         if (request()->wantsJson()) {
             return response()->json($response);
+        }
+
+        if (($response['success'] ?? false) === false) {
+            return back()->withErrors(['favorites' => $response['error'] ?? 'Không thể xoá khỏi yêu thích.']);
         }
 
         return back()->with('success', 'Đã xoá khỏi yêu thích');
@@ -85,6 +95,10 @@ class ProfileController extends Controller
             return response()->json($response);
         }
 
-        return back()->with('success', 'Cảm ơn đã đánh giá !');
+        if (($response['success'] ?? false) === false) {
+            return back()->withErrors(['rating' => $response['error'] ?? 'Không thể gửi đánh giá.']);
+        }
+
+        return back()->with('success', 'Cảm ơn bạn đã đánh giá.');
     }
 }

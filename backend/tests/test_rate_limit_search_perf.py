@@ -8,6 +8,7 @@ from app.db.models import Category, CategoryDestination, Destination
 from app.db.session import SessionLocal
 from app import app_factory
 from app.core.config import settings
+from app.routers import destinations as destinations_router
 
 client = TestClient(app)
 
@@ -39,7 +40,7 @@ class _FakeRedis:
         return _FakePipeline(self._counters)
 
 
-def _seed_destinations() -> tuple[str, str, str]:
+def _seed_destinations() -> tuple[str, int, int, str, str]:
     suffix = uuid4().hex[:8]
     category_slug = f"beach-{suffix}"
 
@@ -89,7 +90,7 @@ def _seed_destinations() -> tuple[str, str, str]:
         db.add(CategoryDestination(category_id=category.id, destination_id=d2.id))
         db.commit()
 
-        return category_slug, d1.slug, d2.slug
+        return category_slug, int(d1.id), int(d2.id), d1.slug, d2.slug
     finally:
         db.close()
 
@@ -111,7 +112,7 @@ def test_rate_limit_blocks_after_threshold(monkeypatch):
 
 
 def test_destinations_list_and_search_filters_work():
-    category_slug, expected_slug, _ = _seed_destinations()
+    category_slug, _, _, expected_slug, _ = _seed_destinations()
 
     list_resp = client.get(
         "/api/v1/destinations",
@@ -138,6 +139,65 @@ def test_destinations_list_and_search_filters_work():
     search_data = search_resp.json()["data"]
     assert len(search_data) >= 2
     assert search_data[0]["rating_avg"] >= search_data[1]["rating_avg"]
+
+
+def test_search_uses_elasticsearch_ids_order_when_available(monkeypatch):
+    category_slug, first_id, second_id, first_slug, second_slug = _seed_destinations()
+    monkeypatch.setattr(settings, "search_use_elasticsearch", True)
+    monkeypatch.setattr(
+        destinations_router,
+        "search_destination_ids",
+        lambda **_: [second_id, first_id],
+    )
+
+    resp = client.get(
+        "/api/v1/destinations/search",
+        params={"q": "beach", "category_slug": category_slug, "page": 1, "limit": 20},
+    )
+    assert resp.status_code == 200
+    slugs = [item["slug"] for item in resp.json()["data"]]
+    assert slugs[:2] == [second_slug, first_slug]
+
+
+def test_search_falls_back_to_db_when_es_unavailable(monkeypatch):
+    category_slug, _, _, _, _ = _seed_destinations()
+    monkeypatch.setattr(settings, "search_use_elasticsearch", True)
+    monkeypatch.setattr(destinations_router, "search_destination_ids", lambda **_: None)
+
+    resp = client.get(
+        "/api/v1/destinations/search",
+        params={"q": "beach", "category_slug": category_slug, "page": 1, "limit": 20},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert len(data) >= 2
+
+
+def test_destinations_sort_non_increasing_for_views_and_rating():
+    _seed_destinations()
+
+    views_resp = client.get("/api/v1/destinations", params={"sort": "views", "page": 1, "limit": 20})
+    ratings_resp = client.get("/api/v1/destinations", params={"sort": "rating", "page": 1, "limit": 20})
+
+    assert views_resp.status_code == 200
+    assert ratings_resp.status_code == 200
+
+    view_values = [item["view_count"] for item in views_resp.json()["data"]]
+    rating_values = [item["rating_avg"] for item in ratings_resp.json()["data"]]
+
+    assert view_values == sorted(view_values, reverse=True)
+    assert rating_values == sorted(rating_values, reverse=True)
+
+
+def test_invalid_filter_params_return_validation_error():
+    invalid_page = client.get("/api/v1/destinations", params={"page": 0, "limit": 20})
+    invalid_limit = client.get("/api/v1/destinations", params={"page": 1, "limit": 999})
+
+    assert invalid_page.status_code == 400
+    assert invalid_page.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    assert invalid_limit.status_code == 400
+    assert invalid_limit.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_destinations_list_performance_baseline():

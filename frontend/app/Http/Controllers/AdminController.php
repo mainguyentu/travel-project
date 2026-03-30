@@ -24,6 +24,13 @@ class AdminController extends Controller
         $topRatings = $this->apiClient->get('admin/stats/top-ratings');
         $topViews = $this->apiClient->get('admin/stats/top-views');
 
+        $errors = [];
+        foreach ([$users, $destinations, $topFavorites, $topRatings, $topViews] as $payload) {
+            if (($payload['success'] ?? true) === false) {
+                $errors[] = $payload['error'] ?? 'Có lỗi khi tải dữ liệu dashboard.';
+            }
+        }
+
         $stats = [
             'total_users' => (int) (($users['meta']['total'] ?? 0)),
             'total_destinations' => (int) (($destinations['meta']['total'] ?? 0)),
@@ -36,6 +43,7 @@ class AdminController extends Controller
         
         return view('pages.admin.dashboard', [
             'stats' => $stats,
+            'dashboardErrors' => $errors,
         ]);
     }
 
@@ -45,9 +53,11 @@ class AdminController extends Controller
     public function users()
     {
         $response = $this->apiClient->get('admin/users', ['page' => 1, 'limit' => 50]);
+        $requestFailed = ($response['success'] ?? true) === false;
 
         return view('pages.admin.users.index', [
             'users' => $response['data'] ?? [],
+            'usersError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách người dùng.') : null,
         ]);
     }
 
@@ -57,9 +67,11 @@ class AdminController extends Controller
     public function categories()
     {
         $response = $this->apiClient->get('admin/categories');
+        $requestFailed = ($response['success'] ?? true) === false;
 
         return view('pages.admin.categories.index', [
             'categories' => $response['data'] ?? [],
+            'categoriesError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh mục.') : null,
         ]);
     }
 
@@ -69,9 +81,11 @@ class AdminController extends Controller
     public function destinations()
     {
         $response = $this->apiClient->get('admin/destinations', ['page' => 1, 'limit' => 50]);
+        $requestFailed = ($response['success'] ?? true) === false;
 
         return view('pages.admin.destinations.index', [
             'destinations' => $response['data'] ?? [],
+            'destinationsError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách điểm đến.') : null,
         ]);
     }
 
@@ -83,6 +97,13 @@ class AdminController extends Controller
         $topFavorites = $this->apiClient->get('admin/stats/top-favorites');
         $topRatings = $this->apiClient->get('admin/stats/top-ratings');
         $topViews = $this->apiClient->get('admin/stats/top-views');
+
+        $errors = [];
+        foreach ([$topFavorites, $topRatings, $topViews] as $payload) {
+            if (($payload['success'] ?? true) === false) {
+                $errors[] = $payload['error'] ?? 'Có lỗi khi tải thống kê.';
+            }
+        }
 
         $response = [
             'data' => [
@@ -101,6 +122,7 @@ class AdminController extends Controller
 
         return view('pages.admin.stats', [
             'stats' => $response['data'] ?? [],
+            'statsErrors' => $errors,
         ]);
     }
 }
