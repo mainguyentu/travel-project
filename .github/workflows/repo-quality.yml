@@ -58,7 +58,7 @@ jobs:
         run: |
           mkdir -p build/logs
           vendor/bin/phpunit --list-tests
-          phpdbg -qrr vendor/bin/phpunit --configuration phpunit.xml --testsuite Feature --coverage-clover build/logs/clover.xml
+          vendor/bin/phpunit --configuration phpunit.xml --coverage-clover build/logs/clover.xml
 
       - name: Upload frontend coverage artifact
         uses: actions/upload-artifact@v4
