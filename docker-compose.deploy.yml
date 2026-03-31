@@ -1,0 +1,190 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: travel
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d travel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:3.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    restart: unless-stopped
+
+  migrate:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: &backend_env
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_MAX_CONNECTIONS: ${REDIS_MAX_CONNECTIONS:-100}
+      REDIS_SOCKET_CONNECT_TIMEOUT: ${REDIS_SOCKET_CONNECT_TIMEOUT:-2.0}
+      REDIS_SOCKET_TIMEOUT: ${REDIS_SOCKET_TIMEOUT:-2.0}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-true}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-travel-backend}
+      KAFKA_TOPIC_FAVORITE: ${KAFKA_TOPIC_FAVORITE:-favorite-events}
+      KAFKA_TOPIC_RATING: ${KAFKA_TOPIC_RATING:-rating-events}
+      KAFKA_TOPIC_DESTINATION: ${KAFKA_TOPIC_DESTINATION:-destination-events}
+      KAFKA_TOPIC_VIEW: ${KAFKA_TOPIC_VIEW:-view-events}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:-travel-events-dlq}
+      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:-travel-worker-group}
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-true}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      ELASTICSEARCH_INDEX: ${ELASTICSEARCH_INDEX:-travel_destinations}
+      SEARCH_USE_ELASTICSEARCH: ${SEARCH_USE_ELASTICSEARCH:-true}
+      WORKER_RETRY_MAX: ${WORKER_RETRY_MAX:-3}
+      WORKER_RETRY_BACKOFF_SECONDS: ${WORKER_RETRY_BACKOFF_SECONDS:-0.5}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-alats-travel}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["https://app.example.com"]}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-lc", "alembic upgrade head && python scripts/seed.py"]
+    restart: "no"
+
+  auth-service:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: *backend_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ["uvicorn", "app.apps.auth_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  destination-service:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: *backend_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ["uvicorn", "app.apps.destination_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  interaction-service:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: *backend_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ["uvicorn", "app.apps.interaction_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  admin-service:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: *backend_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ["uvicorn", "app.apps.admin_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  analytics-service:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: *backend_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_started
+    command: ["uvicorn", "app.apps.analytics_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  worker-service:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
+    environment: *backend_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_started
+    command: ["python", "-m", "app.worker.consumer"]
+    restart: unless-stopped
+
+  api-gateway:
+    image: ${GATEWAY_IMAGE:?Set GATEWAY_IMAGE before deploy}
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - destination-service
+      - interaction-service
+      - admin-service
+      - analytics-service
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

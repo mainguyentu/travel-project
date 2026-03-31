@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.db.models import Category, CategoryDestination, Destination, User
+from app.db.models import AuditLog, Category, CategoryDestination, Destination, User
 from app.db.session import SessionLocal
 from app.main import app
 
@@ -94,6 +94,24 @@ def test_auth_register_login_refresh_logout():
 
     logout_resp = client.post("/api/v1/auth/logout", json={"refresh_token": tokens["refresh_token"]})
     assert logout_resp.status_code == 200
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        assert user is not None
+        actions = (
+            db.query(AuditLog)
+            .filter(AuditLog.actor_user_id == user.id)
+            .order_by(AuditLog.id.asc())
+            .all()
+        )
+        action_names = [a.action for a in actions]
+        assert "auth.register" in action_names
+        assert "auth.login" in action_names
+        assert "auth.refresh" in action_names
+        assert "auth.logout" in action_names
+    finally:
+        db.close()
 
 
 def test_auth_refresh_revoked_token_rejected():
@@ -254,6 +272,21 @@ def test_admin_flow():
 
     stats = client.get("/api/v1/admin/stats/top-views", headers={"Authorization": f"Bearer {token}"})
     assert stats.status_code == 200
+
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.email == admin_email).first()
+        assert admin is not None
+        actions = (
+            db.query(AuditLog)
+            .filter(AuditLog.actor_user_id == admin.id)
+            .order_by(AuditLog.id.asc())
+            .all()
+        )
+        action_names = [a.action for a in actions]
+        assert "admin.category.create" in action_names
+    finally:
+        db.close()
 
 
 def test_admin_forbidden_for_non_admin_user():
