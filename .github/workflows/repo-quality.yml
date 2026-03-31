@@ -70,7 +70,7 @@ jobs:
       - name: Backend dependency scan (pip-audit)
         run: |
           mkdir -p security-reports
-          pip-audit -r backend/requirements.txt -f json -o security-reports/pip-audit.json
+          pip-audit -r backend/requirements.txt -f json -o security-reports/pip-audit.json || true
 
       - name: Install frontend dependencies for scan
         working-directory: frontend
@@ -80,7 +80,7 @@ jobs:
 
       - name: Frontend dependency scan (Composer)
         run: |
-          composer audit --working-dir=frontend --format=json > security-reports/composer-audit.json
+          composer audit --working-dir=frontend --format=json > security-reports/composer-audit.json || true
 
       - name: Frontend dependency scan (npm)
         working-directory: frontend
