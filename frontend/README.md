@@ -77,6 +77,7 @@ Ví dụ:
 
 - `auth/login` -> `/api/v1/auth/login`
 - `destinations` -> `/api/v1/destinations`
+- `analytics/summary` -> `/api/v1/analytics/summary`
 
 ### 4.1 Redis response cache cho frontend
 
@@ -133,13 +134,15 @@ npm run dev
 
 Mặc định UI: `http://127.0.0.1:8000`
 
+### 5.3 Kiểm tra kết nối API nhanh
+
+Đảm bảo backend stack đang chạy qua gateway (`http://localhost:8080`), sau đó truy cập:
+
+- Landing page: `GET /`
+- Destinations page: `GET /destinations`
+- Login page: `GET /login`
+
 ## 6. Build và test
-
-Build assets:
-
-```bash
-npm run build
-```
 
 Chạy test:
 
@@ -151,6 +154,12 @@ Hoặc:
 
 ```bash
 composer run test
+```
+
+Build assets (local/CI):
+
+```bash
+npm run build
 ```
 
 ## 7. Luồng xác thực hiện tại
@@ -170,6 +179,8 @@ docker compose up --build
 ```
 
 Sau đó quay lại frontend để chạy UI local như mục 5.
+
+Nếu cần chỉnh endpoint backend cho môi trường khác, cập nhật `API_BASE_URL` trong `.env` frontend.
 
 Tài liệu backend liên quan:
 

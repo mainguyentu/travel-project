@@ -31,6 +31,7 @@ class User(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     tokens = relationship("UserToken", back_populates="user", cascade="all, delete-orphan")
+    audit_logs = relationship("AuditLog", back_populates="actor", cascade="all, delete-orphan")
 
 
 class UserToken(Base):
@@ -138,3 +139,25 @@ class DestinationMetric(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     destination = relationship("Destination", back_populates="metrics")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(IDType, primary_key=True, autoincrement=True)
+    actor_user_id = Column(IDType, ForeignKey("users.id"), nullable=True, index=True)
+    actor_email = Column(String(255), nullable=True)
+    actor_role = Column(String(20), nullable=True)
+    action = Column(String(120), nullable=False, index=True)
+    target_type = Column(String(80), nullable=True)
+    target_id = Column(String(120), nullable=True)
+    status = Column(String(20), nullable=False, default="success")
+    request_id = Column(String(64), nullable=True, index=True)
+    method = Column(String(10), nullable=True)
+    path = Column(String(255), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+    actor = relationship("User", back_populates="audit_logs")

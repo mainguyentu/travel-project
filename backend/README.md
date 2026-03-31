@@ -12,11 +12,13 @@ Backend triển khai theo mô hình module/service với FastAPI, SQLAlchemy, Al
 
 - `docs/API_REFERENCE.md`: danh sách endpoint và payload mẫu.
 - `docs/ARCHITECTURE.md`: kiến trúc runtime, data flow, gateway route map.
+- `docs/SECURITY_RUNBOOK.md`: quy trình bảo mật, rotation secrets, incident checklist.
+- `docs/WORKER_RUNBOOK.md`: vận hành worker, DLQ và replay.
+- `docs/OBSERVABILITY_BASELINE.md`: guardrails DB/Redis và threshold cảnh báo.
 
 ## Cấu trúc chính
 
 - `app/main.py`: app tổng hợp toàn bộ router (monolith mode).
-- `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin).
 - `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin, analytics).
 - `app/routers/`: endpoint theo domain.
 - `app/services/`, `app/repositories/`: business logic và data access.
@@ -91,6 +93,18 @@ Mặc định app chạy ở `http://localhost:8000`.
 - API prefix: `/api/v1`
 - Swagger UI: `/docs`
 
+5) (Tuỳ chọn) chạy worker local
+
+```bash
+python -m app.worker.consumer
+```
+
+Replay event từ DLQ:
+
+```bash
+python scripts/replay_dlq.py --limit 100
+```
+
 ## Chạy theo service (không gateway)
 
 ```bash
@@ -127,6 +141,8 @@ Consumer xử lý event Kafka (favorite/rating/destination/view):
 ```bash
 python -m app.worker.consumer
 ```
+
+Lưu ý: cần bật Kafka/Elasticsearch theo biến môi trường (`KAFKA_ENABLED`, `ELASTICSEARCH_ENABLED`) hoặc chạy qua Docker Compose.
 
 ## Kiểm tra nhanh
 
@@ -175,6 +191,12 @@ Chạy test backend:
 
 ```bash
 pytest -q
+```
+
+Chạy test có coverage gate (tương đương CI quality workflow):
+
+```bash
+pytest tests -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=70
 ```
 
 ## Tài khoản seed mặc định (local)

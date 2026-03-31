@@ -1,0 +1,131 @@
+name: Post-Deploy SLO Check
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      health_latency_ms:
+        required: false
+        type: number
+        default: 300
+      read_latency_ms:
+        required: false
+        type: number
+        default: 500
+      analytics_latency_ms:
+        required: false
+        type: number
+        default: 800
+    secrets:
+      base_url:
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: Environment name (staging/production)
+        required: true
+        type: string
+      base_url:
+        description: Public base URL
+        required: true
+        type: string
+      health_latency_ms:
+        description: Max health endpoint latency (ms)
+        required: false
+        default: "300"
+      read_latency_ms:
+        description: Max public read endpoint latency (ms)
+        required: false
+        default: "500"
+      analytics_latency_ms:
+        description: Max analytics endpoint latency (ms)
+        required: false
+        default: "800"
+
+permissions:
+  contents: read
+
+jobs:
+  slo-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check endpoints and latency thresholds
+        id: check
+        shell: bash
+        env:
+          BASE_URL: ${{ secrets.base_url }}
+          DISPATCH_BASE_URL: ${{ github.event.inputs.base_url || '' }}
+          ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+          HEALTH_LIMIT: ${{ inputs.health_latency_ms }}
+          READ_LIMIT: ${{ inputs.read_latency_ms }}
+          ANALYTICS_LIMIT: ${{ inputs.analytics_latency_ms }}
+        run: |
+          set -euo pipefail
+
+          base_url_raw="${BASE_URL:-${DISPATCH_BASE_URL:-}}"
+          if [[ -z "$base_url_raw" ]]; then
+            echo "Missing base URL (secrets.base_url for workflow_call or input base_url for workflow_dispatch)" >&2
+            exit 1
+          fi
+
+          base_url="${base_url_raw%/}"
+
+          cat > slo-report.md <<EOF
+          # Post-Deploy SLO Report (${ENVIRONMENT_NAME})
+
+          Base URL: ${base_url}
+
+          | Endpoint | HTTP | Latency (ms) | Threshold (ms) | Result |
+          |---|---:|---:|---:|---|
+          EOF
+
+          failure=0
+
+          run_check() {
+            endpoint="$1"
+            threshold="$2"
+            url="${base_url}${endpoint}"
+
+            result=$(curl -sS -o /tmp/resp.txt -w "%{http_code} %{time_total}" "$url")
+            http_code=$(echo "$result" | awk '{print $1}')
+            latency_ms=$(echo "$result" | awk '{printf "%.0f", $2 * 1000}')
+
+            check_result="PASS"
+            if [[ "$http_code" -lt 200 || "$http_code" -ge 400 ]]; then
+              check_result="FAIL"
+              failure=1
+            fi
+            if [[ "$latency_ms" -gt "$threshold" ]]; then
+              check_result="FAIL"
+              failure=1
+            fi
+
+            echo "| ${endpoint} | ${http_code} | ${latency_ms} | ${threshold} | ${check_result} |" >> slo-report.md
+          }
+
+          run_check "/health" "$HEALTH_LIMIT"
+          run_check "/api/v1/destinations?page=1&limit=5" "$READ_LIMIT"
+          run_check "/api/v1/analytics/summary" "$ANALYTICS_LIMIT"
+
+          if [[ "$failure" -eq 1 ]]; then
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "SLO checks failed" >&2
+            cat slo-report.md
+            exit 1
+          fi
+
+          echo "status=passed" >> "$GITHUB_OUTPUT"
+
+      - name: Upload SLO report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slo-report-${{ inputs.environment_name }}-${{ github.run_id }}
+          path: slo-report.md
+
+      - name: Add summary
+        if: always()
+        run: cat slo-report.md >> "$GITHUB_STEP_SUMMARY"

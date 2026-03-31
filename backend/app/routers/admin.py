@@ -1,5 +1,6 @@
 ﻿from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
+from app.core.audit import write_audit_log
 from app.core.responses import response_success
 from app.core.errors import AppError
 from app.core.deps import require_admin
@@ -33,17 +34,51 @@ def list_users(request: Request, page: int = Query(default=1, ge=1), limit: int 
 
 
 @router.patch("/users/{user_id}/status")
-def update_user_status(user_id: int, payload: UserStatusUpdate, request: Request, db: Session = Depends(get_db)):
+def update_user_status(
+    user_id: int,
+    payload: UserStatusUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
     service = AdminService(db)
     user = service.update_user_status(user_id, payload.status)
+    write_audit_log(
+        db,
+        request,
+        "admin.user_status.update",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="user",
+        target_id=user.id,
+        payload={"status": payload.status},
+    )
     db.commit()
     return response_success(user_to_dict(user), {"request_id": request.state.request_id})
 
 
 @router.patch("/users/{user_id}/role")
-def update_user_role(user_id: int, payload: UserRoleUpdate, request: Request, db: Session = Depends(get_db)):
+def update_user_role(
+    user_id: int,
+    payload: UserRoleUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
     service = AdminService(db)
     user = service.update_user_role(user_id, payload.role)
+    write_audit_log(
+        db,
+        request,
+        "admin.user_role.update",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="user",
+        target_id=user.id,
+        payload={"role": payload.role},
+    )
     db.commit()
     return response_success(user_to_dict(user), {"request_id": request.state.request_id})
 
@@ -56,11 +91,22 @@ def list_categories(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/categories", status_code=201)
-def create_category(payload: CategoryCreate, request: Request, db: Session = Depends(get_db)):
+def create_category(payload: CategoryCreate, request: Request, db: Session = Depends(get_db), current_user=Depends(require_admin)):
     repo = CategoryRepository(db)
     if repo.get_by_slug(payload.slug):
         raise AppError("CONFLICT", "Slug already exists", status_code=409)
     category = repo.create(payload.name, payload.slug, payload.descriptions)
+    write_audit_log(
+        db,
+        request,
+        "admin.category.create",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="category",
+        target_id=category.id,
+        payload=payload.model_dump(),
+    )
     db.commit()
     invalidate_list_cache()
     invalidate_public_landing_cache()
@@ -68,7 +114,13 @@ def create_category(payload: CategoryCreate, request: Request, db: Session = Dep
 
 
 @router.put("/categories/{category_id}")
-def update_category(category_id: int, payload: CategoryUpdate, request: Request, db: Session = Depends(get_db)):
+def update_category(
+    category_id: int,
+    payload: CategoryUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
     repo = CategoryRepository(db)
     category = repo.get_by_id(category_id)
     if not category:
@@ -78,6 +130,17 @@ def update_category(category_id: int, payload: CategoryUpdate, request: Request,
         if existing and existing.id != category_id:
             raise AppError("CONFLICT", "Slug already exists", status_code=409)
     category = repo.update(category, payload.model_dump(exclude_unset=True))
+    write_audit_log(
+        db,
+        request,
+        "admin.category.update",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="category",
+        target_id=category.id,
+        payload=payload.model_dump(exclude_unset=True),
+    )
     db.commit()
     invalidate_list_cache()
     invalidate_public_landing_cache()
@@ -85,10 +148,20 @@ def update_category(category_id: int, payload: CategoryUpdate, request: Request,
 
 
 @router.delete("/categories/{category_id}")
-def delete_category(category_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_category(category_id: int, request: Request, db: Session = Depends(get_db), current_user=Depends(require_admin)):
     repo = CategoryRepository(db)
     category = repo.get_by_id(category_id)
     if category:
+        write_audit_log(
+            db,
+            request,
+            "admin.category.delete",
+            actor_user_id=current_user.id,
+            actor_email=current_user.email,
+            actor_role=current_user.role,
+            target_type="category",
+            target_id=category.id,
+        )
         repo.delete(category)
         db.commit()
         invalidate_list_cache()
@@ -108,10 +181,26 @@ def list_destinations(request: Request, status: str | None = None, page: int = Q
 
 
 @router.post("/destinations", status_code=201)
-def create_destination(payload: DestinationCreate, request: Request, db: Session = Depends(get_db)):
+def create_destination(
+    payload: DestinationCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
     service = DestinationService(db)
     data = payload.model_dump(exclude={"category_ids"})
     destination = service.create(data, payload.category_ids)
+    write_audit_log(
+        db,
+        request,
+        "admin.destination.create",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="destination",
+        target_id=destination.id,
+        payload=payload.model_dump(),
+    )
     db.commit()
     publish_event(
         settings.kafka_topic_destination,
@@ -125,10 +214,27 @@ def create_destination(payload: DestinationCreate, request: Request, db: Session
 
 
 @router.put("/destinations/{destination_id}")
-def update_destination(destination_id: int, payload: DestinationUpdate, request: Request, db: Session = Depends(get_db)):
+def update_destination(
+    destination_id: int,
+    payload: DestinationUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
     service = DestinationService(db)
     data = payload.model_dump(exclude_unset=True, exclude={"category_ids"})
     destination = service.update(destination_id, data, payload.category_ids)
+    write_audit_log(
+        db,
+        request,
+        "admin.destination.update",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="destination",
+        target_id=destination.id,
+        payload=payload.model_dump(exclude_unset=True),
+    )
     db.commit()
     publish_event(
         settings.kafka_topic_destination,
@@ -142,9 +248,24 @@ def update_destination(destination_id: int, payload: DestinationUpdate, request:
 
 
 @router.delete("/destinations/{destination_id}")
-def delete_destination(destination_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_destination(
+    destination_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
     service = DestinationService(db)
     service.delete(destination_id)
+    write_audit_log(
+        db,
+        request,
+        "admin.destination.delete",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="destination",
+        target_id=destination_id,
+    )
     db.commit()
     publish_event(
         settings.kafka_topic_destination,
