@@ -106,7 +106,7 @@ jobs:
           path: security-reports
 
       - name: Upload Trivy SARIF
-        if: always()
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: security-reports/trivy-backend-image.sarif
