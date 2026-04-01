@@ -1,5 +1,5 @@
 <div class="destination-modal" data-destination-modal
-    data-api-endpoint="{{ rtrim(config('api.endpoint'), '/') }}"
+    data-api-endpoint="{{ rtrim(config('api.browser_endpoint'), '/') }}"
     data-rating-endpoint="{{ url('/ratings') }}"
     data-can-rate="{{ session()->has('access_token') ? 'true' : 'false' }}"
     data-login-url="{{ route('login') }}" hidden>

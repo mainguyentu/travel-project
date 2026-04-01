@@ -1,0 +1,50 @@
+# Git files
+.git
+.gitattributes
+.gitignore
+.github
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+.editorconfig
+
+# Node/npm
+node_modules/
+npm-debug.log
+package-lock.json.old
+.npm
+
+# Build artifacts
+public/build
+.vite
+
+# PHP
+vendor/
+composer.lock
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# Environment files (use .env.example instead)
+.env.local
+.env.*.local
+
+# Development/Test
+tests/
+phpunit.xml
+storage/
+bootstrap/cache/*
+!bootstrap/cache/.gitkeep
+
+# Documentation
+README.md
+CHANGELOG.md
+docs/
+
+# Other
+.styleci.yml
+.editorconfig

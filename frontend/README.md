@@ -3,6 +3,8 @@
 Frontend được xây dựng bằng Laravel (Blade + SSR) và tích hợp backend thông qua API Gateway.
 Trang destinations sử dụng popup chi tiết (render bằng JS) thay cho route chi tiết riêng.
 
+Frontend là lớp giao diện chính của Travel Project, phục vụ cả public flow và admin flow thông qua backend API `/api/v1/*`.
+
 Mục tiêu:
 
 - Public pages cho khám phá điểm đến.
@@ -134,6 +136,8 @@ npm run dev
 
 Mặc định UI: `http://127.0.0.1:8000`
 
+Khi chạy full Docker stack, UI đi qua gateway tại `http://localhost:8080`.
+
 ### 5.3 Kiểm tra kết nối API nhanh
 
 Đảm bảo backend stack đang chạy qua gateway (`http://localhost:8080`), sau đó truy cập:
@@ -187,6 +191,13 @@ Tài liệu backend liên quan:
 - `../backend/README.md`
 - `../backend/docs/API_REFERENCE.md`
 - `../backend/docs/ARCHITECTURE.md`
+- `../backend/docs/DEPLOYMENT_RUNBOOK.md`
+
+Tài liệu hệ thống liên quan:
+
+- `../README.md`
+- `../DOCKER_INTEGRATION.md`
+- `../design-docs/README.md`
 
 ## 9. Ghi chú phát triển
 

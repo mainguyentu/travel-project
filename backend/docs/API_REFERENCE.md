@@ -242,12 +242,37 @@ Body create mẫu:
 - `GET /api/v1/admin/stats/top-ratings`
 - `GET /api/v1/admin/stats/top-views`
 
+## Analytics
+
+### Summary
+
+- `GET /api/v1/analytics/summary`
+
+### Top Favorites
+
+- `GET /api/v1/analytics/top-favorites?limit=10`
+
+### Top Ratings
+
+- `GET /api/v1/analytics/top-ratings?limit=10`
+
+### Top Views
+
+- `GET /api/v1/analytics/top-views?limit=10`
+
 ## Swagger / OpenAPI
 
 - Swagger UI: `/docs`
 - OpenAPI JSON: `/openapi.json`
 
-Ví dụ qua gateway:
+Lưu ý quan trọng:
 
-- `http://localhost:8080/docs`
-- `http://localhost:8080/openapi.json`
+- Trong chế độ Docker Compose đầy đủ (gateway + frontend), gateway route non-API (`/`) sang frontend.
+- Vì vậy `http://localhost:8080/docs` và `http://localhost:8080/openapi.json` không phải đường truy cập tài liệu backend mặc định.
+
+Cách truy cập tài liệu OpenAPI backend:
+
+1. Chạy backend monolith local (`uvicorn app.main:app --reload`) và dùng:
+  - `http://localhost:8000/docs`
+  - `http://localhost:8000/openapi.json`
+2. Hoặc expose trực tiếp cổng service backend trong môi trường debug riêng.

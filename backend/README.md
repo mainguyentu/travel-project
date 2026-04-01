@@ -2,6 +2,8 @@
 
 Backend triển khai theo mô hình module/service với FastAPI, SQLAlchemy, Alembic và Redis (cache + rate-limit).
 
+Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publish events sang Kafka để worker cập nhật analytics và search index.
+
 ## Mục tiêu tài liệu
 
 - Backend developer: nắm nhanh cấu trúc và luồng chạy.
@@ -15,6 +17,8 @@ Backend triển khai theo mô hình module/service với FastAPI, SQLAlchemy, Al
 - `docs/SECURITY_RUNBOOK.md`: quy trình bảo mật, rotation secrets, incident checklist.
 - `docs/WORKER_RUNBOOK.md`: vận hành worker, DLQ và replay.
 - `docs/OBSERVABILITY_BASELINE.md`: guardrails DB/Redis và threshold cảnh báo.
+- `docs/DEPLOYMENT_RUNBOOK.md`: quy trình release/deploy staging/production qua GitHub Actions.
+- `../DOCKER_INTEGRATION.md`: tổng quan tích hợp Docker toàn hệ thống.
 
 ## Cấu trúc chính
 
@@ -125,6 +129,8 @@ docker compose up --build
 
 Gateway: `http://localhost:8080`
 
+Frontend khi chạy qua gateway cũng ở `http://localhost:8080` (non-API routes).
+
 Route map qua gateway:
 
 - `/api/v1/auth/*` -> `auth-service`
@@ -209,3 +215,4 @@ pytest tests -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xm
 - Không dùng `JWT_SECRET=change-me` ngoài môi trường dev.
 - Tài khoản mẫu từ `scripts/seed.py` chỉ dùng cho local/testing.
 - Tránh đưa secrets hoặc internal URL vào tài liệu public.
+- Khi deploy staging/production, tham chiếu `docs/DEPLOYMENT_RUNBOOK.md` để cấu hình secrets/workflows đúng chuẩn.
