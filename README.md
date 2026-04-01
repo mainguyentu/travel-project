@@ -8,6 +8,18 @@ Hệ thống gợi ý và quản trị điểm đến du lịch, gồm:
 
 README này là tài liệu tổng (entrypoint) để onboard nhanh toàn dự án.
 
+## 0. Project Summary
+
+Travel Project là hệ thống full-stack gồm backend API và frontend SSR, được tổ chức theo kiến trúc service-split qua API Gateway.
+
+Phạm vi chính:
+
+- Quản lý người dùng và xác thực JWT.
+- Khám phá điểm đến, yêu thích, đánh giá.
+- Quản trị dữ liệu users/categories/destinations.
+- Thống kê analytics theo lượt xem/yêu thích/đánh giá.
+- Hạ tầng local và deploy bằng Docker Compose + GitHub Actions.
+
 ## 1. Cấu trúc workspace
 
 - `backend/`: FastAPI app, Alembic migration, seed script, test.
@@ -15,6 +27,7 @@ README này là tài liệu tổng (entrypoint) để onboard nhanh toàn dự �
 - `docker-compose.yml`: stack local đầy đủ.
 - `nginx.conf`: route map gateway tới từng backend service.
 - `design-docs/`: bộ tài liệu phân tích thiết kế và chuẩn triển khai.
+- `DOCKER_INTEGRATION.md`: tài liệu tích hợp Docker runtime và routing gateway.
 
 ## 2. Kiến trúc runtime (local)
 
@@ -67,6 +80,13 @@ curl http://localhost:8080/
 curl http://localhost:8080/health
 ```
 
+PowerShell (Windows):
+
+```powershell
+curl.exe http://localhost:8080/
+curl.exe http://localhost:8080/health
+```
+
 Dừng:
 
 ```bash
@@ -109,7 +129,8 @@ Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`
 
 ## 5. URL và endpoint quan trọng
 
-- Frontend UI: `http://127.0.0.1:8000`
+- Frontend UI (Docker gateway): `http://localhost:8080`
+- Frontend UI (chạy frontend local tách riêng): `http://127.0.0.1:8000`
 - API Gateway: `http://localhost:8080`
 - Health gateway: `GET /health`
 - Analytics summary: `GET /api/v1/analytics/summary`
@@ -120,8 +141,13 @@ Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`
 - Tổng hợp backend: `backend/README.md`
 - API backend: `backend/docs/API_REFERENCE.md`
 - Kiến trúc backend: `backend/docs/ARCHITECTURE.md`
+- Runbook deploy: `backend/docs/DEPLOYMENT_RUNBOOK.md`
+- Runbook bảo mật: `backend/docs/SECURITY_RUNBOOK.md`
+- Runbook worker: `backend/docs/WORKER_RUNBOOK.md`
+- Baseline quan sát: `backend/docs/OBSERVABILITY_BASELINE.md`
 - Tổng hợp frontend: `frontend/README.md`
 - Bộ design docs: `design-docs/README.md`
+- Docker integration: `DOCKER_INTEGRATION.md`
 
 ## 7. Tài khoản seed local
 
