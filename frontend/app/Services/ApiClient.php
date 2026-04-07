@@ -85,16 +85,9 @@ class ApiClient
      */
     private function performGet(string $path, array $query = []): array
     {
-        try {
-            $response = $this->client->get($this->getEndpoint($path), [
-                'headers' => $this->getHeaders(),
-                'query' => $query,
-            ]);
-
-            return json_decode($response->getBody()->getContents(), true);
-        } catch (GuzzleException $e) {
-            return $this->handleError($e);
-        }
+        return $this->sendRequest('GET', $path, [
+            'query' => $query,
+        ]);
     }
 
     /**
@@ -102,18 +95,15 @@ class ApiClient
      */
     public function post(string $path, array $data = []): array
     {
-        try {
-            $response = $this->client->post($this->getEndpoint($path), [
-                'headers' => $this->getHeaders(),
-                'json' => $data,
-            ]);
+        $response = $this->sendRequest('POST', $path, [
+            'json' => $data,
+        ]);
 
+        if (($response['success'] ?? true) !== false) {
             $this->invalidateCacheOnWrite();
-
-            return json_decode($response->getBody()->getContents(), true);
-        } catch (GuzzleException $e) {
-            return $this->handleError($e);
         }
+
+        return $response;
     }
 
     /**
@@ -121,18 +111,31 @@ class ApiClient
      */
     public function put(string $path, array $data = []): array
     {
-        try {
-            $response = $this->client->put($this->getEndpoint($path), [
-                'headers' => $this->getHeaders(),
-                'json' => $data,
-            ]);
+        $response = $this->sendRequest('PUT', $path, [
+            'json' => $data,
+        ]);
 
+        if (($response['success'] ?? true) !== false) {
             $this->invalidateCacheOnWrite();
-
-            return json_decode($response->getBody()->getContents(), true);
-        } catch (GuzzleException $e) {
-            return $this->handleError($e);
         }
+
+        return $response;
+    }
+
+    /**
+     * PATCH request
+     */
+    public function patch(string $path, array $data = []): array
+    {
+        $response = $this->sendRequest('PATCH', $path, [
+            'json' => $data,
+        ]);
+
+        if (($response['success'] ?? true) !== false) {
+            $this->invalidateCacheOnWrite();
+        }
+
+        return $response;
     }
 
     /**
@@ -140,17 +143,13 @@ class ApiClient
      */
     public function delete(string $path): array
     {
-        try {
-            $response = $this->client->delete($this->getEndpoint($path), [
-                'headers' => $this->getHeaders(),
-            ]);
+        $response = $this->sendRequest('DELETE', $path);
 
+        if (($response['success'] ?? true) !== false) {
             $this->invalidateCacheOnWrite();
-
-            return json_decode($response->getBody()->getContents(), true);
-        } catch (GuzzleException $e) {
-            return $this->handleError($e);
         }
+
+        return $response;
     }
 
     /**
@@ -174,6 +173,83 @@ class ApiClient
             'error' => $decoded['error']['message'] ?? $decoded['message'] ?? 'API Error',
             'details' => $decoded['error']['details'] ?? $decoded,
         ];
+    }
+
+    /**
+     * Send request with automatic token refresh
+     */
+    private function sendRequest(string $method, string $path, array $options = [], bool $allowRefresh = true): array
+    {
+        try {
+            $response = $this->client->request($method, $this->getEndpoint($path), array_merge([
+                'headers' => $this->getHeaders(),
+            ], $options));
+
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (RequestException $e) {
+            if ($allowRefresh && $this->shouldAttemptRefresh($e, $path) && $this->refreshTokens()) {
+                return $this->sendRequest($method, $path, $options, false);
+            }
+
+            return $this->handleError($e);
+        } catch (GuzzleException $e) {
+            return $this->handleError($e);
+        }
+    }
+
+    private function shouldAttemptRefresh(RequestException $e, string $path): bool
+    {
+        $status = $e->getResponse()?->getStatusCode();
+        if ($status !== 401) {
+            return false;
+        }
+
+        if (!Session::has('refresh_token')) {
+            return false;
+        }
+
+        if (str_starts_with($path, 'auth/')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function refreshTokens(): bool
+    {
+        $refreshToken = Session::get('refresh_token');
+        if (!$refreshToken) {
+            return false;
+        }
+
+        try {
+            $response = $this->client->post($this->getEndpoint('auth/refresh'), [
+                'headers' => $this->getHeaders(),
+                'json' => [
+                    'refresh_token' => $refreshToken,
+                ],
+            ]);
+
+            $payload = json_decode($response->getBody()->getContents(), true);
+            if (!is_array($payload) || ($payload['success'] ?? false) === false) {
+                Session::forget(['access_token', 'refresh_token', 'user']);
+                return false;
+            }
+
+            $data = $payload['data'] ?? [];
+            if (!isset($data['access_token'], $data['refresh_token'])) {
+                Session::forget(['access_token', 'refresh_token', 'user']);
+                return false;
+            }
+
+            Session::put('access_token', $data['access_token']);
+            Session::put('refresh_token', $data['refresh_token']);
+
+            return true;
+        } catch (GuzzleException) {
+            Session::forget(['access_token', 'refresh_token', 'user']);
+            return false;
+        }
     }
 
     private function shouldUseCache(string $path): bool

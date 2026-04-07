@@ -39,7 +39,15 @@ Route::middleware('session.auth')->group(function () {
 Route::middleware('session.admin')->prefix('admin')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/users', [AdminController::class, 'users'])->name('admin.users.index');
+    Route::patch('/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('admin.users.status');
+    Route::patch('/users/{userId}/role', [AdminController::class, 'updateUserRole'])->name('admin.users.role');
     Route::get('/categories', [AdminController::class, 'categories'])->name('admin.categories.index');
+    Route::post('/categories', [AdminController::class, 'createCategory'])->name('admin.categories.store');
+    Route::put('/categories/{categoryId}', [AdminController::class, 'updateCategory'])->name('admin.categories.update');
+    Route::delete('/categories/{categoryId}', [AdminController::class, 'deleteCategory'])->name('admin.categories.delete');
     Route::get('/destinations', [AdminController::class, 'destinations'])->name('admin.destinations.index');
+    Route::post('/destinations', [AdminController::class, 'createDestination'])->name('admin.destinations.store');
+    Route::put('/destinations/{destinationId}', [AdminController::class, 'updateDestination'])->name('admin.destinations.update');
+    Route::delete('/destinations/{destinationId}', [AdminController::class, 'deleteDestination'])->name('admin.destinations.delete');
     Route::get('/stats', [AdminController::class, 'stats'])->name('admin.stats.index');
 });

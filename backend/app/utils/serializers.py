@@ -15,6 +15,28 @@ def destination_to_dict(destination: Destination) -> dict:
     for cd in destination.categories:
         if cd.category:
             categories.append(category_to_dict(cd.category))
+
+    insight_data = None
+    if destination.insight:
+        insight_data = {
+            "destination_id": destination.insight.destination_id,
+            "human_override": destination.insight.human_override,
+            "score_snapshot": destination.insight.score_snapshot,
+            "final_data": destination.insight.final_data,
+            "updated_at": destination.insight.updated_at.isoformat() if destination.insight.updated_at else None,
+        }
+
+    metrics_data = None
+    if destination.metrics:
+        metrics_data = {
+            "destination_id": destination.metrics.destination_id,
+            "favorite_count": int(destination.metrics.favorite_count or 0),
+            "rating_count": int(destination.metrics.rating_count or 0),
+            "rating_sum": int(destination.metrics.rating_sum or 0),
+            "view_count": int(destination.metrics.view_count or 0),
+            "updated_at": destination.metrics.updated_at.isoformat() if destination.metrics.updated_at else None,
+        }
+
     return {
         "id": destination.id,
         "name": destination.name,
@@ -31,6 +53,8 @@ def destination_to_dict(destination: Destination) -> dict:
         "view_count": int(destination.view_count or 0),
         "status": destination.status,
         "categories": categories,
+        "insight": insight_data,
+        "metrics": metrics_data,
     }
 
 

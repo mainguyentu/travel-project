@@ -59,6 +59,8 @@ docker compose -f docker-compose.deploy.yml up -d --remove-orphans
 
 - Job production dùng environment `production`.
 - Cần cấu hình required reviewers trong GitHub Environments để bắt buộc approval trước khi chạy deploy.
+- Auto deploy production chỉ chạy khi commit message chứa `[deploy]`.
+- Manual dispatch bắt buộc `confirm_phrase=DEPLOY_PRODUCTION`.
 
 ## 6) Rollback procedure
 

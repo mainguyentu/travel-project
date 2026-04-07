@@ -6,7 +6,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.db.session import SessionLocal
-from app.db.models import User, Category, Destination, CategoryDestination
+from app.db.models import User, Category, Destination, CategoryDestination, DestinationInsight, DestinationMetric
 from app.core.security import hash_password
 
 
@@ -42,6 +42,44 @@ def upsert_destination(db, data, category_ids):
             destination.categories.append(CategoryDestination(category_id=cid, destination_id=destination.id))
     db.flush()
     return destination
+
+
+def upsert_destination_insight(db, destination_id, final_data, human_override=None, score_snapshot=None):
+    insight = db.query(DestinationInsight).filter(DestinationInsight.destination_id == destination_id).first()
+    if not insight:
+        insight = DestinationInsight(
+            destination_id=destination_id,
+            human_override=human_override,
+            score_snapshot=score_snapshot,
+            final_data=final_data,
+        )
+        db.add(insight)
+    else:
+        insight.human_override = human_override
+        insight.score_snapshot = score_snapshot
+        insight.final_data = final_data
+    db.flush()
+    return insight
+
+
+def upsert_destination_metric(db, destination_id, favorite_count, rating_count, rating_sum, view_count):
+    metric = db.query(DestinationMetric).filter(DestinationMetric.destination_id == destination_id).first()
+    if not metric:
+        metric = DestinationMetric(
+            destination_id=destination_id,
+            favorite_count=favorite_count,
+            rating_count=rating_count,
+            rating_sum=rating_sum,
+            view_count=view_count,
+        )
+        db.add(metric)
+    else:
+        metric.favorite_count = favorite_count
+        metric.rating_count = rating_count
+        metric.rating_sum = rating_sum
+        metric.view_count = view_count
+    db.flush()
+    return metric
 
 
 def run():
@@ -205,6 +243,40 @@ def run():
 
         for d in destinations:
             upsert_destination(db, d, mapping.get(d["slug"], []))
+
+        my_khe = db.query(Destination).filter(Destination.slug == "my-khe-beach").first()
+        if my_khe:
+            my_khe.rating_avg = 4.8
+            my_khe.view_count = 128
+            upsert_destination_insight(
+                db,
+                my_khe.id,
+                final_data={
+                    "score": 92,
+                    "summary": "Bai bien dep, phu hop di bo, tam bien va ngam binh minh.",
+                    "highlights": [
+                        "Canh quan rong, sach",
+                        "Gan trung tam Da Nang",
+                        "Phu hop nhom gia dinh va du khach ngan ngay",
+                    ],
+                    "risks": [
+                        "Dong nguoi vao cuoi tuan",
+                        "Nang gay khung gio trua",
+                    ],
+                    "recommendation": "Nen tham quan buoi sang som hoac chieu muon.",
+                },
+                human_override={
+                    "priority": "high",
+                    "note": "Top beach destination for the public detail page seed data.",
+                },
+                score_snapshot={
+                    "scenery": 95,
+                    "accessibility": 90,
+                    "crowd": 78,
+                    "value": 94,
+                },
+            )
+            upsert_destination_metric(db, my_khe.id, favorite_count=42, rating_count=18, rating_sum=86, view_count=128)
 
         db.commit()
         print("Seed done")

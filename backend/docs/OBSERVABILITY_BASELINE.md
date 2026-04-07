@@ -1,6 +1,6 @@
 # OBSERVABILITY_BASELINE
 
-Baseline theo dõi DB/Redis và threshold cảnh báo cho production.
+Baseline theo dõi DB/Redis/API/Worker cho staging và production.
 
 ## 1) Database guardrails
 
@@ -11,7 +11,7 @@ Config hiện có:
 - `DB_POOL_TIMEOUT`
 - `DB_POOL_RECYCLE`
 
-Khuyến nghị threshold cảnh báo:
+Threshold cảnh báo khuyến nghị:
 
 - P95 API latency > 800ms trong 10 phút.
 - Tỷ lệ lỗi 5xx > 2% trong 5 phút.
@@ -26,7 +26,7 @@ Config hiện có:
 - `REDIS_SOCKET_CONNECT_TIMEOUT`
 - `REDIS_SOCKET_TIMEOUT`
 
-Khuyến nghị threshold cảnh báo:
+Threshold cảnh báo khuyến nghị:
 
 - Cache error log (`Redis get/set failed`) > 20 lần/5 phút.
 - Redis memory usage > 80%.
@@ -39,12 +39,20 @@ Khuyến nghị threshold cảnh báo:
 - Log cần include `request_id` để correlate gateway và app logs.
 - Action auth/admin phải có bản ghi trong `audit_logs`.
 
-## 4) SLO gợi ý (MVP)
+## 4) SLO baseline (đang áp dụng)
 
 - API availability: 99.5%/tháng.
 - P95 read endpoints: < 500ms.
 - P95 write endpoints: < 800ms.
 - Worker DLQ rate: < 0.5% tổng events/giờ.
+
+Đối soát sau deploy:
+
+- Workflow `.github/workflows/post-deploy-slo-check.yml` chạy tự động sau staging/prod deploy.
+- Endpoint kiểm tra:
+   - `/health`
+   - `/api/v1/destinations?page=1&limit=5`
+   - `/api/v1/analytics/summary`
 
 ## 5) Quy trình khi vượt ngưỡng
 

@@ -75,6 +75,10 @@ def detail(destination_id: int, request: Request, db: Session = Depends(get_db))
     cache_key = key_dest_detail(destination_id)
     cached = cache_get(cache_key)
     if cached:
+        if "insight" not in cached or "metrics" not in cached:
+            service = DestinationService(db)
+            destination = service.get_detail(destination_id, increment_view=False)
+            cached = destination_to_dict(destination)
         repo = DestinationRepository(db)
         repo.increment_view(destination_id)
         db.commit()

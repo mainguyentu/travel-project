@@ -41,6 +41,14 @@ function initDestinationModal() {
 
     let activeRequestToken = null;
 
+    const buildDestinationDetailUrl = (destinationId) => {
+        try {
+            return new URL(`destinations/${destinationId}`, `${apiEndpoint}/`).toString();
+        } catch (_) {
+            return `${apiEndpoint}/destinations/${destinationId}`;
+        }
+    };
+
     const renderLoading = () => {
         modalTitle.textContent = 'Đang tải chi tiết...';
         modalContent.innerHTML = '<p class="muted">Vui lòng chờ trong giây lát...</p>';
@@ -71,13 +79,39 @@ function initDestinationModal() {
         return priceLabels[key] || String(priceLevel);
     };
 
+    const toSafeList = (items) => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return '';
+        }
+        return items
+            .map((item) => `<li>${toSafeText(item, '')}</li>`)
+            .join('');
+    };
+
     const renderDestination = (destination) => {
         const name = toSafeText(destination.name, 'N/A');
-        const category = toSafeText(destination.categories?.[0]?.name, 'Điểm đến');
+        const categoryNames = Array.isArray(destination.categories)
+            ? destination.categories.map((item) => item?.name).filter(Boolean)
+            : [];
+        const categoryBadge = toSafeText(categoryNames[0], 'Điểm đến');
+        const category = toSafeText(categoryNames.join(', '), 'Điểm đến');
         const address = toSafeText(destination.address, 'Chưa cập nhật');
         const description = toSafeText(destination.description, 'Chưa có mô tả cho địa điểm này.');
         const rating = Number(destination.rating_avg || 0).toFixed(1);
-        const reviewCount = Number(destination.review_count || 0);
+        const metrics = destination.metrics || null;
+        const reviewCount = Number(metrics?.rating_count ?? destination.review_count ?? 0);
+        const favoriteCount = Number(metrics?.favorite_count ?? 0);
+        const totalViews = Number(metrics?.view_count ?? destination.view_count ?? 0);
+        const insight = destination.insight || null;
+        const insightData = insight?.final_data || null;
+        const insightScore = insightData?.score ?? insight?.score_snapshot?.overall ?? null;
+        const insightSummary = toSafeText(
+            insightData?.summary,
+            'Hiện chưa có insight tổng quan cho địa điểm này.'
+        );
+        const highlightsList = toSafeList(insightData?.highlights);
+        const risksList = toSafeList(insightData?.risks);
+        const recommendation = toSafeText(insightData?.recommendation, '');
         const price = toSafeText(normalizePrice(destination.price_level));
         const image = destination.img_url ? toSafeText(destination.img_url, '') : '';
         const mapUrl = destination.url_map ? toSafeText(destination.url_map, '') : '';
@@ -94,7 +128,7 @@ function initDestinationModal() {
             <section class="destination-modal-hero">
                 ${image ? `<img src="${image}" alt="${name}">` : '<div class="destination-modal-image-placeholder">No image</div>'}
                 <div class="destination-modal-hero-overlay">
-                    <span class="badge badge-soft">${category}</span>
+                    <span class="badge badge-soft">${categoryBadge}</span>
                     <h3>${name}</h3>
                     <p>Đánh giá ${rating}/5 · ${reviewCount} reviews · ${price}</p>
                 </div>
@@ -113,10 +147,41 @@ function initDestinationModal() {
                     <strong>Mức giá</strong>
                     <p class="muted">${price}</p>
                 </article>
+                <article class="public-card destination-modal-meta-card">
+                    <strong>Lượt yêu thích</strong>
+                    <p class="muted">${favoriteCount}</p>
+                </article>
+                <article class="public-card destination-modal-meta-card">
+                    <strong>Lượt xem</strong>
+                    <p class="muted">${totalViews}</p>
+                </article>
             </section>
             <section class="detail-panel destination-modal-section">
                 <h3>Thông tin tổng quan</h3>
                 <p class="muted">${description}</p>
+            </section>
+
+            <section class="detail-panel destination-modal-section">
+                <h3>Insight điểm đến ${insightScore !== null ? `<span class="muted">(Score: ${toSafeText(insightScore, '')})</span>` : ''}</h3>
+                <p class="muted">${insightSummary}</p>
+                ${highlightsList ? `
+                    <div class="destination-modal-insight-block">
+                        <strong>Điểm nổi bật</strong>
+                        <ul class="muted">${highlightsList}</ul>
+                    </div>
+                ` : ''}
+                ${risksList ? `
+                    <div class="destination-modal-insight-block">
+                        <strong>Lưu ý</strong>
+                        <ul class="muted">${risksList}</ul>
+                    </div>
+                ` : ''}
+                ${recommendation ? `
+                    <div class="destination-modal-insight-block">
+                        <strong>Khuyến nghị</strong>
+                        <p class="muted">${recommendation}</p>
+                    </div>
+                ` : ''}
             </section>
 
             ${(mapUrl || ratingAction) ? `
@@ -173,14 +238,16 @@ function initDestinationModal() {
         dialog.focus();
 
         try {
-            const response = await fetch(`${apiEndpoint}/destinations/${destinationId}`, {
+            const requestUrl = buildDestinationDetailUrl(destinationId);
+            const response = await fetch(requestUrl, {
+                mode: 'cors',
                 headers: {
                     Accept: 'application/json',
                 },
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP_${response.status}`);
+                throw new Error(`HTTP_${response.status} (${requestUrl})`);
             }
 
             const payload = await response.json();
@@ -199,7 +266,11 @@ function initDestinationModal() {
                 return;
             }
             renderError('Không tải được dữ liệu điểm đến. Vui lòng thử lại sau.');
-            console.error('Destination detail error:', error);
+            console.error('Destination detail error:', {
+                error,
+                apiEndpoint,
+                browserOrigin: window.location.origin,
+            });
         }
     };
 

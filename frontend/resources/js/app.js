@@ -1,78 +1,154 @@
-import './bootstrap';
-import './destination-modal';
+import "./bootstrap";
+import "./destination-modal";
 
-document.addEventListener('DOMContentLoaded', () => {
-	const mobileToggle = document.querySelector('[data-mobile-toggle]');
-	const mobileNav = document.querySelector('[data-mobile-nav]');
-	const userMenu = document.querySelector('[data-user-menu]');
-	const userMenuToggle = document.querySelector('[data-user-menu-toggle]');
-	const userMenuList = document.querySelector('[data-user-menu-list]');
+document.addEventListener("DOMContentLoaded", () => {
+    const slugify = (value) => {
+        if (!value) {
+            return "";
+        }
 
-	const setMobileNav = (isOpen) => {
-		if (!mobileToggle || !mobileNav) {
-			return;
-		}
+        return value
+            .toString()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[đĐ]/g, (m) => (m === "đ" ? "d" : "D"))
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-")
+            .replace(/-+/g, "-");
+    };
 
-		mobileToggle.setAttribute('aria-expanded', String(isOpen));
-		mobileNav.hidden = !isOpen;
-		mobileNav.classList.toggle('is-open', isOpen);
-	};
+    const slugPairs = document.querySelectorAll("[data-slug-target]");
+    slugPairs.forEach((sourceInput) => {
+        const targetSelector = sourceInput.getAttribute("data-slug-target");
+        if (!targetSelector) {
+            return;
+        }
 
-	const setUserMenu = (isOpen) => {
-		if (!userMenuToggle || !userMenuList) {
-			return;
-		}
+        const targetInput = document.querySelector(targetSelector);
+        if (!targetInput) {
+            return;
+        }
 
-		userMenuToggle.setAttribute('aria-expanded', String(isOpen));
-		userMenuList.classList.toggle('is-open', isOpen);
-	};
+        const lock = { value: false };
 
-	if (mobileToggle && mobileNav) {
-		setMobileNav(false);
+        targetInput.addEventListener("input", () => {
+            if (targetInput.value !== "") {
+                lock.value = true;
+            }
+        });
 
-		mobileToggle.addEventListener('click', (event) => {
-			event.stopPropagation();
-			const nextState = mobileNav.hidden;
-			setMobileNav(nextState);
-		});
-	}
+        sourceInput.addEventListener("input", () => {
+            if (lock.value) {
+                return;
+            }
 
-	if (userMenu && userMenuToggle && userMenuList) {
-		setUserMenu(false);
+            targetInput.value = slugify(sourceInput.value);
+        });
+    });
 
-		userMenuToggle.addEventListener('click', (event) => {
-			event.stopPropagation();
-			const nextState = !userMenuList.classList.contains('is-open');
-			setUserMenu(nextState);
-		});
-	}
+    const toggleButtons = document.querySelectorAll("[data-toggle-target]");
+    toggleButtons.forEach((button) => {
+        const targetSelector = button.getAttribute("data-toggle-target");
+        if (!targetSelector) {
+            return;
+        }
 
-	document.addEventListener('click', (event) => {
-		if (userMenu && userMenuList.classList.contains('is-open') && !userMenu.contains(event.target)) {
-			setUserMenu(false);
-		}
+        const target = document.querySelector(targetSelector);
+        if (!target) {
+            return;
+        }
 
-		if (mobileToggle && mobileNav.classList.contains('is-open')) {
-			const clickedInsideMobileMenu = mobileNav.contains(event.target) || mobileToggle.contains(event.target);
-			if (!clickedInsideMobileMenu) {
-				setMobileNav(false);
-			}
-		}
-	});
+        button.addEventListener("click", () => {
+            const isHidden = target.hasAttribute("hidden");
+            if (isHidden) {
+                target.removeAttribute("hidden");
+                button.textContent = button.textContent.replace("Mo", "Dong");
+            } else {
+                target.setAttribute("hidden", "");
+                button.textContent = button.textContent.replace("Dong", "Mo");
+            }
+        });
+    });
 
-	document.addEventListener('keydown', (event) => {
-		if (event.key !== 'Escape') {
-			return;
-		}
+    const mobileToggle = document.querySelector("[data-mobile-toggle]");
+    const mobileNav = document.querySelector("[data-mobile-nav]");
+    const userMenu = document.querySelector("[data-user-menu]");
+    const userMenuToggle = document.querySelector("[data-user-menu-toggle]");
+    const userMenuList = document.querySelector("[data-user-menu-list]");
 
-		if (userMenuList && userMenuList.classList.contains('is-open')) {
-			setUserMenu(false);
-			userMenuToggle?.focus();
-		}
+    const setMobileNav = (isOpen) => {
+        if (!mobileToggle || !mobileNav) {
+            return;
+        }
 
-		if (mobileNav && mobileNav.classList.contains('is-open')) {
-			setMobileNav(false);
-			mobileToggle?.focus();
-		}
-	});
+        mobileToggle.setAttribute("aria-expanded", String(isOpen));
+        mobileNav.hidden = !isOpen;
+        mobileNav.classList.toggle("is-open", isOpen);
+    };
+
+    const setUserMenu = (isOpen) => {
+        if (!userMenuToggle || !userMenuList) {
+            return;
+        }
+
+        userMenuToggle.setAttribute("aria-expanded", String(isOpen));
+        userMenuList.classList.toggle("is-open", isOpen);
+    };
+
+    if (mobileToggle && mobileNav) {
+        setMobileNav(false);
+
+        mobileToggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const nextState = mobileNav.hidden;
+            setMobileNav(nextState);
+        });
+    }
+
+    if (userMenu && userMenuToggle && userMenuList) {
+        setUserMenu(false);
+
+        userMenuToggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const nextState = !userMenuList.classList.contains("is-open");
+            setUserMenu(nextState);
+        });
+    }
+
+    document.addEventListener("click", (event) => {
+        if (
+            userMenu &&
+            userMenuList.classList.contains("is-open") &&
+            !userMenu.contains(event.target)
+        ) {
+            setUserMenu(false);
+        }
+
+        if (mobileToggle && mobileNav.classList.contains("is-open")) {
+            const clickedInsideMobileMenu =
+                mobileNav.contains(event.target) ||
+                mobileToggle.contains(event.target);
+            if (!clickedInsideMobileMenu) {
+                setMobileNav(false);
+            }
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") {
+            return;
+        }
+
+        if (userMenuList && userMenuList.classList.contains("is-open")) {
+            setUserMenu(false);
+            userMenuToggle?.focus();
+        }
+
+        if (mobileNav && mobileNav.classList.contains("is-open")) {
+            setMobileNav(false);
+            mobileToggle?.focus();
+        }
+    });
 });

@@ -80,7 +80,7 @@ def refresh(payload: RefreshRequest, request: Request, db: Session = Depends(get
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "Bearer",
-            "expires_in": settings.jwt_access_ttl_min * 60,
+            "expires_in": settings.jwt_access_ttl_min,
         },
         {"request_id": request.state.request_id},
     )

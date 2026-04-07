@@ -31,6 +31,42 @@ class DestinationService:
         invalidate_public_landing_cache()
         return destination
 
+    def create_many(self, destinations_payload: list[dict]):
+        if not destinations_payload:
+            return []
+
+        slugs = [str(item.get("slug", "")).strip() for item in destinations_payload]
+        if any(not slug for slug in slugs):
+            raise AppError("VALIDATION_ERROR", "Slug is required for all destinations", status_code=400)
+        if len(set(slugs)) != len(slugs):
+            raise AppError("VALIDATION_ERROR", "Duplicate slug in request payload", status_code=400)
+
+        existing = self.destinations.get_by_slugs(slugs)
+        if existing:
+            existing_slugs = ", ".join(sorted(destination.slug for destination in existing))
+            raise AppError("CONFLICT", f"Slug already exists: {existing_slugs}", status_code=409)
+
+        all_category_ids: list[int] = []
+        for item in destinations_payload:
+            category_ids = item.get("category_ids") or []
+            all_category_ids.extend(category_ids)
+        self._validate_categories(sorted(set(all_category_ids)))
+
+        created_destinations = []
+        for item in destinations_payload:
+            data = dict(item)
+            category_ids = data.pop("category_ids", [])
+            destination = self.destinations.create(data)
+            if category_ids:
+                self.destinations.set_categories(destination, category_ids)
+            created_destinations.append(destination)
+
+        invalidate_admin_stats_cache()
+        invalidate_public_landing_cache()
+        for destination in created_destinations:
+            invalidate_destination_cache(destination.id)
+        return created_destinations
+
     def update(self, destination_id: int, data: dict, category_ids: list[int] | None):
         destination = self.destinations.get_by_id(destination_id)
         if not destination:
@@ -54,7 +90,7 @@ class DestinationService:
         invalidate_public_landing_cache()
 
     def get_detail(self, destination_id: int, increment_view: bool = True):
-        destination = self.destinations.get_by_id(destination_id)
+        destination = self.destinations.get_detail_by_id(destination_id)
         if not destination or destination.status != "active":
             raise AppError("NOT_FOUND", "Destination not found", status_code=404)
         if increment_view:

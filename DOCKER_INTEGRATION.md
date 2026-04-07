@@ -25,6 +25,10 @@ Nginx Gateway (api-gateway)
     |- /api/v1/me/*           -> interaction-service:8000
     |- /api/v1/admin/*        -> admin-service:8000
     |- /api/v1/analytics/*    -> analytics-service:8000
+    |- /api-docs              -> static docs portal
+    |- /api-docs/specs/*.json -> per-service openapi.json
+    |- /api-docs/swagger/*    -> proxied FastAPI /docs
+    |- /api-docs/redoc/*      -> proxied FastAPI /redoc
     |- /health                -> destination-service:8000/health
     '- / (non-API routes)     -> frontend:8001
 
@@ -94,6 +98,7 @@ Biến môi trường chính trong local compose:
 - `API_GATEWAY_URL=http://localhost:8080`
 
 Lưu ý: gateway route non-API về frontend, nên UI được truy cập qua `http://localhost:8080`.
+Docs portal được truy cập qua `http://localhost:8080/api-docs`.
 
 ## Migrate Job
 
