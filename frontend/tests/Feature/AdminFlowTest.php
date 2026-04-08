@@ -101,8 +101,16 @@ class AdminFlowTest extends TestCase
     {
         $this->mock(ApiClient::class, function (MockInterface $mock): void {
             $mock->shouldReceive('get')
+                ->with('admin/categories')
                 ->once()
+                ->andReturn([
+                    'success' => true,
+                    'data' => [['id' => 10, 'name' => 'Beach', 'slug' => 'beach']],
+                ]);
+            
+            $mock->shouldReceive('get')
                 ->with('admin/destinations', ['page' => 1, 'limit' => 50])
+                ->once()
                 ->andReturn([
                     'success' => true,
                     'data' => [[
