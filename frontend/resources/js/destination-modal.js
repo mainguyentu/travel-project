@@ -95,11 +95,12 @@ function initDestinationModal() {
             : [];
         const categoryBadge = toSafeText(categoryNames[0], 'Điểm đến');
         const category = toSafeText(categoryNames.join(', '), 'Điểm đến');
-        const address = toSafeText(destination.address, 'Chưa cập nhật');
+        const address = toSafeText(destination.address, 'Đang cập nhật');
         const description = toSafeText(destination.description, 'Chưa có mô tả cho địa điểm này.');
         const rating = Number(destination.rating_avg || 0).toFixed(1);
         const metrics = destination.metrics || null;
         const reviewCount = Number(metrics?.rating_count ?? destination.review_count ?? 0);
+        const openHours = toSafeText(description.open_hour, 'Đang cập nhật');
         const favoriteCount = Number(metrics?.favorite_count ?? 0);
         const totalViews = Number(metrics?.view_count ?? destination.view_count ?? 0);
         const insight = destination.insight || null;
@@ -129,8 +130,8 @@ function initDestinationModal() {
                 ${image ? `<img src="${image}" alt="${name}">` : '<div class="destination-modal-image-placeholder">No image</div>'}
                 <div class="destination-modal-hero-overlay">
                     <span class="badge badge-soft">${categoryBadge}</span>
-                    <h3>${name}</h3>
-                    <p>Đánh giá ${rating}/5 · ${reviewCount} reviews · ${price}</p>
+                    <h3 class="text-2xl">${name}</h3>
+                    <p>Đánh giá ${rating}/5 · ${price} . ${openHours} </p>
                 </div>
             </section>
 

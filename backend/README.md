@@ -14,7 +14,7 @@ Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publi
 
 - Bổ sung API docs portal tại gateway: `/api-docs`, specs theo từng service và trang Swagger/Redoc riêng.
 - Bổ sung endpoint admin bulk create destinations: `POST /api/v1/admin/destinations/bulk`.
-- Payload destination detail đã bao gồm thêm `insight` va `metrics`.
+- Payload destination detail đã bao gồm thêm `insight` và `metrics`.
 
 ## Tài liệu liên quan trong backend
 
@@ -73,25 +73,25 @@ Lưu ý bảo mật cấu hình:
 
 ## Chạy local (không Docker)
 
-1) Cài dependencies
+1. Cài dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2) Chạy migration
+2. Chạy migration
 
 ```bash
 alembic upgrade head
 ```
 
-3) Seed dữ liệu mẫu
+3. Seed dữ liệu mẫu
 
 ```bash
 python scripts/seed.py
 ```
 
-4) Chạy app tổng hợp
+4. Chạy app tổng hợp
 
 ```bash
 uvicorn app.main:app --reload
@@ -103,7 +103,7 @@ Mặc định app chạy ở `http://localhost:8000`.
 - API prefix: `/api/v1`
 - Swagger UI: `/docs`
 
-5) (Tuỳ chọn) chạy worker local
+5. (Tuỳ chọn) chạy worker local
 
 ```bash
 python -m app.worker.consumer

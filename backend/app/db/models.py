@@ -102,6 +102,7 @@ class DestinationInsight(Base):
     human_override = Column(JSON, nullable=True)
     score_snapshot = Column(JSON, nullable=True)
     final_data = Column(JSON, nullable=False)
+    insight_cache = Column(JSON, nullable=True)
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     destination = relationship("Destination", back_populates="insight")

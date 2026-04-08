@@ -1,6 +1,6 @@
 # Docker Integration: Backend + Frontend
 
-## Overview
+## Tổng Quan
 
 Tài liệu này mô tả trạng thái Docker integration mới nhất của dự án.
 
@@ -12,7 +12,7 @@ Hiện tại `docker-compose.yml` chạy đầy đủ:
 - API Gateway Nginx
 - PostgreSQL, Redis, Kafka, Elasticsearch
 
-## Runtime Architecture
+## Kiến Trúc Runtime
 
 ```text
 User (http://localhost:8080)
@@ -26,7 +26,7 @@ Nginx Gateway (api-gateway)
     |- /api/v1/admin/*        -> admin-service:8000
     |- /api/v1/analytics/*    -> analytics-service:8000
     |- /api-docs              -> static docs portal
-    |- /api-docs/specs/*.json -> per-service openapi.json
+    |- /api-docs/specs/*.json -> per-service OpenAPI
     |- /api-docs/swagger/*    -> proxied FastAPI /docs
     |- /api-docs/redoc/*      -> proxied FastAPI /redoc
     |- /health                -> destination-service:8000/health
@@ -55,7 +55,7 @@ Background:
 - `frontend`
 - `api-gateway`
 
-## Quick Start
+## Bắt Đầu Nhanh
 
 ### 1) Build và chạy toàn stack
 
@@ -86,9 +86,9 @@ docker compose logs -f worker-service
 docker compose down
 ```
 
-## Frontend in Docker
+## Frontend Trong Docker
 
-Frontend service build từ `frontend/Dockerfile` và chạy Laravel trên port nội bộ `8001`.
+Frontend service được build từ `frontend/Dockerfile` và chạy Laravel trên port nội bộ `8001`.
 
 Biến môi trường chính trong local compose:
 
@@ -107,7 +107,7 @@ Service `migrate` chạy tự động trước backend services:
 1. `alembic upgrade head`
 2. `python scripts/seed.py`
 
-Sau khi hoàn tất, service này exit với trạng thái thành công.
+Sau khi hoàn tất, service này thoát với trạng thái thành công.
 
 ## Deploy Compose (staging/production)
 
@@ -168,7 +168,7 @@ docker compose logs -f worker-service
 
 Nếu DLQ tăng cao, xem `backend/docs/WORKER_RUNBOOK.md`.
 
-## Notes
+## Ghi Chú
 
 - Dùng `docker compose` (plugin v2) thay vì `docker-compose` legacy.
-- Không đưa secrets production vào `docker-compose.yml`; dùng secret manager/CI secrets.
+- Không đưa secrets production vào `docker-compose.yml`; hãy dùng secret manager hoặc CI secrets.

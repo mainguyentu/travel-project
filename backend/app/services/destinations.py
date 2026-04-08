@@ -5,6 +5,7 @@ from app.db.models import Category
 from app.repositories.destinations import DestinationRepository
 from app.repositories.categories import CategoryRepository
 from app.core.cache import invalidate_destination_cache, invalidate_admin_stats_cache, invalidate_public_landing_cache
+from app.services.insight import InsightService
 
 
 class DestinationService:
@@ -26,6 +27,7 @@ class DestinationService:
         destination = self.destinations.create(data)
         if category_ids:
             self.destinations.set_categories(destination, category_ids)
+        InsightService(self.db).initialize_for_destination(destination.id)
         invalidate_destination_cache(destination.id)
         invalidate_admin_stats_cache()
         invalidate_public_landing_cache()
@@ -59,6 +61,7 @@ class DestinationService:
             destination = self.destinations.create(data)
             if category_ids:
                 self.destinations.set_categories(destination, category_ids)
+            InsightService(self.db).initialize_for_destination(destination.id)
             created_destinations.append(destination)
 
         invalidate_admin_stats_cache()
