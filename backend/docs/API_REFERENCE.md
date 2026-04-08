@@ -8,9 +8,9 @@ Tài liệu này mô tả các endpoint chính của backend FastAPI theo trạn
 - Gateway (docker-compose): `http://localhost:8080`
 - API prefix: `/api/v1`
 
-## Response Format
+## Định Dạng Phản Hồi
 
-### Success
+### Thành Công
 
 ```json
 {
@@ -23,7 +23,7 @@ Tài liệu này mô tả các endpoint chính của backend FastAPI theo trạn
 }
 ```
 
-### Error
+### Lỗi
 
 ```json
 {
@@ -46,7 +46,7 @@ Tài liệu này mô tả các endpoint chính của backend FastAPI theo trạn
 
 ## Auth
 
-### Register
+### Đăng Ký
 
 - `POST /api/v1/auth/register`
 
@@ -60,7 +60,7 @@ Body:
 }
 ```
 
-### Login
+### Đăng Nhập
 
 - `POST /api/v1/auth/login`
 
@@ -72,14 +72,15 @@ Body:
   "password": "User@123"
 }
 ```
+
 Trả về `access_token`, `refresh_token`, `token_type`, `expires_in`.
 
 Lưu ý:
 
 - `token_type` hiện tại trả về giá trị `Bearer`.
-- `expires_in` hiện tại là số phút (minute), không phải giây.
+- `expires_in` hiện tại là số phút, không phải số giây.
 
-### Refresh Token
+### Làm Mới Token
 
 - `POST /api/v1/auth/refresh`
 
@@ -91,7 +92,7 @@ Body:
 }
 ```
 
-### Logout
+### Đăng Xuất
 
 - `POST /api/v1/auth/logout`
 
@@ -108,46 +109,47 @@ Body:
 ### Landing
 
 - `GET /api/v1/public/landing`
-- Tra ve: `highlights`, `categories`, `top_ratings`, `top_favorites`.
+
+Trả về: `highlights`, `categories`, `top_ratings`, `top_favorites`.
 
 ## Destinations
 
-### List Destinations
+### Danh Sách Destinations
 
 - `GET /api/v1/destinations`
 
 Query params:
 
-- `category_slug` (optional)
-- `price_level` (optional)
-- `rating_min` (optional)
-- `keyword` (optional)
-- `sort` (optional)
-- `page` (default 1)
-- `limit` (default 20, max 100)
+- `category_slug` (tuỳ chọn)
+- `price_level` (tuỳ chọn)
+- `rating_min` (tuỳ chọn)
+- `keyword` (tuỳ chọn)
+- `sort` (tuỳ chọn)
+- `page` (mặc định 1)
+- `limit` (mặc định 20, tối đa 100)
 
-### Search Destinations
+### Tìm Kiếm Destinations
 
 - `GET /api/v1/destinations/search`
 
 Query params:
 
-- `q` (default empty)
-- `category_slug` (optional)
-- `price_level` (optional)
-- `page` (default 1)
-- `limit` (default 20, max 100)
+- `q` (mặc định rỗng)
+- `category_slug` (tuỳ chọn)
+- `price_level` (tuỳ chọn)
+- `page` (mặc định 1)
+- `limit` (mặc định 20, tối đa 100)
 
-### Destination Detail
+### Chi Tiết Destination
 
 - `GET /api/v1/destinations/{destination_id}`
+
 - Tự động tăng `view_count` khi xem chi tiết.
+- Response chi tiết bao gồm thêm `insight` và `metrics`.
 
-Response detail da bao gom them:
-Response detail đã bao gồm thêm:
+`insight` được tạo từ dữ liệu tổng hợp của destination và có thể được cập nhật khi có rating hoặc dữ liệu worker mới.
 
-- `insight`: dữ liệu cho tổng hợp destination.
-- `metrics`: số liệu tổng hợp (favorite/rating/view) cập nhật bởi worker.
+`final_data` bao gồm thêm trường `status` với các giá trị `insufficient_data`, `low_confidence`, `reliable`.
 
 Mẫu `data`:
 
@@ -175,10 +177,11 @@ Mẫu `data`:
     },
     "final_data": {
       "score": 92,
-      "summary": "Bai bien dep",
-      "highlights": ["Canh quan rong"],
-      "risks": ["Dong nguoi cuoi tuan"],
-      "recommendation": "Nen di buoi sang"
+      "summary": "Bãi biển đẹp",
+      "highlights": ["Cảnh quan rộng"],
+      "risks": ["Đông người cuối tuần"],
+      "recommendation": "Nên đi buổi sáng",
+      "status": "reliable"
     },
     "updated_at": "2026-04-07T03:28:39"
   },
@@ -193,28 +196,28 @@ Mẫu `data`:
 }
 ```
 
-## Interaction (Can Bearer Token)
+## Interaction (cần Bearer Token)
 
-Header mau:
+Header mẫu:
 
 ```http
 Authorization: Bearer <access_token>
 ```
 
-### Favorite Destination
+### Yêu Thích Destination
 
 - `POST /api/v1/me/favorites/{destination_id}`
 
-### Unfavorite Destination
+### Bỏ Yêu Thích Destination
 
 - `DELETE /api/v1/me/favorites/{destination_id}`
 
-### List Favorites
+### Danh Sách Yêu Thích
 
 - `GET /api/v1/me/favorites`
 - Query params: `page`, `limit`
 
-### Upsert Rating
+### Cập Nhật Rating
 
 - `PUT /api/v1/me/ratings/{destination_id}`
 
@@ -227,11 +230,11 @@ Body:
 }
 ```
 
-### Get My Rating
+### Lấy Rating Của Tôi
 
 - `GET /api/v1/me/ratings/{destination_id}`
 
-## Admin (Can Bearer Token + role admin)
+## Admin (cần Bearer Token + role admin)
 
 ### Users
 
@@ -239,7 +242,7 @@ Body:
 - `PATCH /api/v1/admin/users/{user_id}/status`
 - `PATCH /api/v1/admin/users/{user_id}/role`
 
-Body update status:
+Body cập nhật status:
 
 ```json
 {
@@ -247,7 +250,7 @@ Body update status:
 }
 ```
 
-Body update role:
+Body cập nhật role:
 
 ```json
 {
@@ -262,13 +265,13 @@ Body update role:
 - `PUT /api/v1/admin/categories/{category_id}`
 - `DELETE /api/v1/admin/categories/{category_id}`
 
-Body create/update:
+Body tạo/cập nhật:
 
 ```json
 {
-  "name": "Am thuc",
+  "name": "Ẩm thực",
   "slug": "food",
-  "descriptions": "Quan an"
+  "descriptions": "Quán ăn"
 }
 ```
 
@@ -280,14 +283,14 @@ Body create/update:
 - `PUT /api/v1/admin/destinations/{destination_id}`
 - `DELETE /api/v1/admin/destinations/{destination_id}`
 
-Body create mẫu:
+Body tạo mẫu:
 
 ```json
 {
   "name": "My Khe Beach",
   "slug": "my-khe-beach",
   "address": "Vo Nguyen Giap, Da Nang",
-  "description": "Bai bien noi tieng",
+  "description": "Bãi biển nổi tiếng",
   "price_level": "medium",
   "open_hour": "All day",
   "img_url": "https://example.com/mykhe.jpg",
@@ -308,7 +311,7 @@ Body bulk create mẫu:
       "name": "My Khe Beach",
       "slug": "my-khe-beach",
       "address": "Vo Nguyen Giap, Da Nang",
-      "description": "Bai bien noi tieng",
+      "description": "Bãi biển nổi tiếng",
       "price_level": "medium",
       "open_hour": "All day",
       "img_url": "https://example.com/mykhe.jpg",
@@ -322,7 +325,7 @@ Body bulk create mẫu:
       "name": "Ba Na Hills",
       "slug": "ba-na-hills",
       "address": "Da Nang",
-      "description": "Khu du lich noi tieng",
+      "description": "Khu du lịch nổi tiếng",
       "price_level": "high",
       "open_hour": "08:00-22:00",
       "img_url": "https://example.com/bana.jpg",
@@ -338,9 +341,9 @@ Body bulk create mẫu:
 
 Lưu ý bulk create:
 
-- Duplicate slug trong payload -> `VALIDATION_ERROR` (400).
-- Slug đã tồn tại trong DB -> `CONFLICT` (409).
-- Category ids được validate trước khi tạo destination.
+- Duplicate slug trong payload sẽ trả `VALIDATION_ERROR` (400).
+- Slug đã tồn tại trong DB sẽ trả `CONFLICT` (409).
+- Category IDs được kiểm tra trước khi tạo destination.
 
 ### Admin Stats
 

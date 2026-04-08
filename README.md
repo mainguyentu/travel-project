@@ -6,9 +6,9 @@ Hệ thống gợi ý và quản trị điểm đến du lịch, gồm:
 - Frontend Laravel Blade (SSR) gọi API qua gateway
 - Hạ tầng local bằng Docker Compose (PostgreSQL, Redis, Kafka, Elasticsearch, Nginx)
 
-README này là tài liệu tổng (entrypoint) để onboard nhanh toàn dự án.
+README này là tài liệu tổng để onboard nhanh toàn dự án.
 
-## 0. Project Summary
+## 0. Tổng Quan Dự Án
 
 Travel Project là hệ thống full-stack gồm backend API và frontend SSR, được tổ chức theo kiến trúc service-split qua API Gateway.
 
@@ -20,12 +20,12 @@ Phạm vi chính:
 - Thống kê analytics theo lượt xem/yêu thích/đánh giá.
 - Hạ tầng local và deploy bằng Docker Compose + GitHub Actions.
 
-## 0.1 Current Progress Snapshot (2026-04)
+## 0.1 Tiến Độ Hiện Tại (2026-04)
 
 - API docs portal đã hoạt động tại gateway qua `/api-docs` (raw specs + Swagger + Redoc theo từng service).
-- Frontend admin UI đã có đủ thao tác ghi dữ liệu cho users, categories, destinations.
+- Frontend admin UI đã có đầy đủ thao tác ghi dữ liệu cho users, categories, destinations.
 - Backend admin đã bổ sung endpoint bulk create destinations.
-- Destination detail payload đã bổ sung `insight` va `metrics` cho popup chi tiết frontend.
+- Destination detail payload đã bổ sung `insight` và `metrics` cho popup chi tiết frontend.
 
 ## 1. Cấu trúc workspace
 
@@ -62,7 +62,7 @@ Gateway route map:
 - `/api/v1/admin/*` -> `admin-service`
 - `/api/v1/analytics/*` -> `analytics-service`
 
-## 3. Quick Start (khuyến nghị)
+## 3. Bắt Đầu Nhanh (khuyến nghị)
 
 Yêu cầu:
 
@@ -135,13 +135,21 @@ Xem hướng dẫn chi tiết tại `frontend/README.md`.
 Luồng cơ bản:
 
 ```bash
+
 cd frontend
+
 composer install
+
 cp .env.example .env
+
 php artisan key:generate
+
 npm install
+
 php artisan serve
+
 npm run dev
+
 ```
 
 Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`.
@@ -149,47 +157,78 @@ Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`
 ## 5. URL và endpoint quan trọng
 
 - Frontend UI (Docker gateway): `http://localhost:8080`
+
 - Frontend UI (chạy frontend local tách riêng): `http://127.0.0.1:8000`
+
 - API Gateway: `http://localhost:8080`
+
 - API Docs Portal: `http://localhost:8080/api-docs`
+
 - Health gateway: `GET /health`
+
 - OpenAPI specs:
-	- `http://localhost:8080/api-docs/specs/auth.json`
-	- `http://localhost:8080/api-docs/specs/destination.json`
-	- `http://localhost:8080/api-docs/specs/interaction.json`
-	- `http://localhost:8080/api-docs/specs/admin.json`
-	- `http://localhost:8080/api-docs/specs/analytics.json`
+  - `http://localhost:8080/api-docs/specs/auth.json`
+
+  - `http://localhost:8080/api-docs/specs/destination.json`
+
+  - `http://localhost:8080/api-docs/specs/interaction.json`
+
+  - `http://localhost:8080/api-docs/specs/admin.json`
+
+  - `http://localhost:8080/api-docs/specs/analytics.json`
+
 - Swagger service docs:
-	- `http://localhost:8080/api-docs/swagger/auth`
-	- `http://localhost:8080/api-docs/swagger/destination`
-	- `http://localhost:8080/api-docs/swagger/interaction`
-	- `http://localhost:8080/api-docs/swagger/admin`
-	- `http://localhost:8080/api-docs/swagger/analytics`
+  - `http://localhost:8080/api-docs/swagger/auth`
+
+  - `http://localhost:8080/api-docs/swagger/destination`
+
+  - `http://localhost:8080/api-docs/swagger/interaction`
+
+  - `http://localhost:8080/api-docs/swagger/admin`
+
+  - `http://localhost:8080/api-docs/swagger/analytics`
+
 - Redoc service docs:
-	- `http://localhost:8080/api-docs/redoc/auth`
-	- `http://localhost:8080/api-docs/redoc/destination`
-	- `http://localhost:8080/api-docs/redoc/interaction`
-	- `http://localhost:8080/api-docs/redoc/admin`
-	- `http://localhost:8080/api-docs/redoc/analytics`
+  - `http://localhost:8080/api-docs/redoc/auth`
+
+  - `http://localhost:8080/api-docs/redoc/destination`
+
+  - `http://localhost:8080/api-docs/redoc/interaction`
+
+  - `http://localhost:8080/api-docs/redoc/admin`
+
+  - `http://localhost:8080/api-docs/redoc/analytics`
+
 - Analytics summary: `GET /api/v1/analytics/summary`
+
 - Swagger backend (monolith mode): `http://localhost:8000/docs`
 
 ## 6. Bộ tài liệu chính
 
 - Tổng hợp backend: `backend/README.md`
+
 - API backend: `backend/docs/API_REFERENCE.md`
+
 - Kiến trúc backend: `backend/docs/ARCHITECTURE.md`
+
 - Runbook deploy: `backend/docs/DEPLOYMENT_RUNBOOK.md`
+
 - Runbook bảo mật: `backend/docs/SECURITY_RUNBOOK.md`
+
 - Runbook worker: `backend/docs/WORKER_RUNBOOK.md`
+
 - Baseline quan sát: `backend/docs/OBSERVABILITY_BASELINE.md`
+
 - Tổng hợp frontend: `frontend/README.md`
+
 - Bộ design docs: `design-docs/README.md`
+
 - Docker integration: `DOCKER_INTEGRATION.md`
 
 ## 7. Tài khoản seed local
 
 - Admin: `admin@alats.vn / Admin@123`
+
 - User: `user@alats.vn / User@123`
 
 Chỉ dùng cho môi trường dev/test local.
@@ -197,26 +236,36 @@ Chỉ dùng cho môi trường dev/test local.
 ## 8. Ghi chú vận hành và bảo mật
 
 - Không dùng secret mặc định ở staging/production.
+
 - Không commit thông tin nhạy cảm vào `.env`.
+
 - Gateway và route map là hợp đồng tích hợp giữa frontend và backend.
+
 - Test E2E smoke backend có tại `backend/tests/test_smoke_e2e.py`.
 
 ## 9. Troubleshooting nhanh (Windows PowerShell)
 
 - Ưu tiên dùng `curl.exe` thay vì alias `curl` để tránh lỗi tham số.
+
 - Với request JSON, dùng `Invoke-RestMethod` sẽ ổn định hơn cho quoting.
 
 Ví dụ:
 
 ```powershell
+
 curl.exe http://localhost:8080/health
 
+
+
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
+
 	-ContentType "application/json" `
+
 	-Body '{"email":"user@alats.vn","password":"User@123"}'
+
 ```
 
-## 10. Repository-wide quality pipeline (P4)
+## 10. Pipeline Chất Lượng Toàn Repo (P4)
 
 CI tại root dùng workflow:
 
@@ -225,29 +274,39 @@ CI tại root dùng workflow:
 Nội dung chính:
 
 - Backend tests + coverage gate
+
 - Frontend build + feature tests + coverage artifact
+
 - Security scan dependency (pip/composer/npm) + backend image scan (Trivy)
 
 Chạy local một lệnh trên Windows PowerShell:
 
 ```powershell
+
 ./scripts/ci.ps1
+
 ```
 
 Nếu cần bỏ qua security scan (chạy nhanh vòng test/build):
 
 ```powershell
+
 ./scripts/ci.ps1 -SkipSecurity
+
 ```
 
-## 11. CI/CD Product Deployment (P5)
+## 11. Triển Khai CI/CD Sản Phẩm (P5)
 
 Workflow mới tại root:
 
 - `.github/workflows/release-build.yml`: build + push image backend và API gateway lên GHCR.
+
 - `.github/workflows/deploy-staging.yml`: deploy staging qua SSH, sau đó chạy post-deploy SLO checks.
+
 - `.github/workflows/deploy-production.yml`: deploy production có approval qua GitHub Environment + hỗ trợ rollback theo tag.
+
 - `.github/workflows/post-deploy-slo-check.yml`: reusable workflow kiểm tra health/read/analytics latency sau deploy.
+
 - `.github/workflows/release-notes.yml`: tự động draft release notes bằng Release Drafter.
 
 Tài liệu vận hành:
