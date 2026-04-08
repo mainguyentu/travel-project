@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Travel API Docs</title>
+  <meta name="description" content="Central documentation portal for the Travel Project APIs.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    :root { color-scheme: light; --bg: #f4f7fb; --panel: rgba(255,255,255,.92); --text: #0f172a; --muted: #475569; --line: rgba(148,163,184,.22); --accent: #0f766e; --accent-2: #2563eb; --warn: #b45309; --shadow: 0 18px 48px rgba(15,23,42,.12); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top left, rgba(37,99,235,.14), transparent 32%), radial-gradient(circle at top right, rgba(15,118,110,.15), transparent 26%), linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { padding: 32px 18px 40px; }
+    .shell { max-width: 1180px; margin: 0 auto; }
+    .hero, .card, .viewer { border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .hero { display: grid; gap: 18px; padding: 28px; border-radius: 10px; background: linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(248,251,255,.92) 100%); overflow: hidden; position: relative; }
+    .hero::after { content: ""; position: absolute; inset: auto -120px -110px auto; width: 260px; height: 260px; border-radius: 999px; background: radial-gradient(circle, rgba(37,99,235,.16) 0%, rgba(37,99,235,0) 72%); pointer-events: none; }
+    .eyebrow { margin: 0; color: var(--accent); font-size: .82rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(2.1rem, 4vw, 4rem); line-height: 1; letter-spacing: -.04em; }
+    .lede { max-width: 72ch; margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.7; }
+    .meta, .toolbar, .link-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .pill, .button, .link { display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 700; text-decoration: none; }
+    .pill { min-height: 38px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.7); color: var(--muted); font-size: .92rem; font-weight: 600; gap: 8px; }
+    .button { min-height: 42px; padding: 0 16px; border: 1px solid transparent; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease; }
+    .button:hover { transform: translateY(-1px); }
+    .button.primary { background: linear-gradient(135deg, var(--accent-2), #1d4ed8); color: #fff; box-shadow: 0 10px 24px rgba(37,99,235,.24); }
+    .button.secondary { background: #fff; color: var(--text); border-color: var(--line); }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 26px 0 14px; }
+    .section-head h2, .card h3 { margin: 0; }
+    .section-head p, .desc, .foot { margin: 0; color: var(--muted); line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+    .card { grid-column: span 12; padding: 18px; border-radius: 22px; background: var(--panel); display: grid; gap: 14px; }
+    @media (min-width: 760px) { .card { grid-column: span 6; } }
+    @media (min-width: 1080px) { .card { grid-column: span 4; } }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .state { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: .82rem; font-weight: 700; background: rgba(15,118,110,.08); color: var(--accent); white-space: nowrap; }
+    .state.offline { background: rgba(180,83,9,.08); color: var(--warn); }
+    .desc { font-size: .98rem; }
+    .link { min-height: 38px; padding: 0 12px; border: 1px solid var(--line); color: var(--text); background: rgba(255,255,255,.88); font-size: .9rem; }
+    .viewer { min-height: 70vh; margin-top: 16px; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,.96); display: none; }
+    .viewer.active { display: block; }
+    #swagger-ui, #redoc-container { min-height: 70vh; }
+    .foot { margin-top: 18px; font-size: .92rem; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Travel Project</p>
+      <h1>API Docs Portal</h1>
+      <p class="lede">Central access point for every OpenAPI spec in the gateway. Use this portal to inspect service contracts, open Swagger UI or Redoc, and copy raw JSON specs for QA or tooling.</p>
+      <div class="meta">
+        <span class="pill">Gateway route: <code>/api-docs/</code></span>
+        <span class="pill">OpenAPI JSON per service</span>
+        <span class="pill">Swagger UI and Redoc</span>
+      </div>
+      <div class="toolbar">
+        <a class="button primary" href="#services">Browse services</a>
+        <a class="button secondary" href="/health">Gateway health</a>
+        <a class="button secondary" href="/">Back to gateway</a>
+      </div>
+    </section>
+
+    <div class="section-head">
+      <div>
+        <h2>Services</h2>
+        <p>Each card links to the live spec, Swagger UI, and Redoc for that service.</p>
+      </div>
+      <p id="summary">Loading status...</p>
+    </div>
+
+    <section id="services" class="grid"></section>
+
+    <section id="viewer" class="viewer" aria-live="polite">
+      <div id="swagger-ui" hidden></div>
+      <div id="redoc-container" hidden></div>
+    </section>
+
+    <p class="foot">The portal is static. The gateway rewrites Swagger and Redoc views locally and proxies only the raw OpenAPI JSON to the service-specific specs.</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@2.5.0/bundles/redoc.standalone.js"></script>
+  <script>
+    const services = [
+      { key: 'auth', title: 'Auth Service', description: 'Login, token refresh, and identity flows.' },
+      { key: 'destination', title: 'Destination Service', description: 'Public destinations, detail pages, and search-facing routes.' },
+      { key: 'interaction', title: 'Interaction Service', description: 'Favorites, reviews, and user interaction endpoints.' },
+      { key: 'admin', title: 'Admin Service', description: 'Admin operations, moderation, and management actions.' },
+      { key: 'analytics', title: 'Analytics Service', description: 'Summary metrics and top-list analytics endpoints.' },
+    ];
+
+    const specs = {
+      auth: '/api-docs/specs/auth.json',
+      destination: '/api-docs/specs/destination.json',
+      interaction: '/api-docs/specs/interaction.json',
+      admin: '/api-docs/specs/admin.json',
+      analytics: '/api-docs/specs/analytics.json',
+    };
+
+    const servicesRoot = document.getElementById('services');
+    const summary = document.getElementById('summary');
+    const viewer = document.getElementById('viewer');
+    const swaggerRoot = document.getElementById('swagger-ui');
+    const redocRoot = document.getElementById('redoc-container');
+    const currentPath = window.location.pathname.replace(/\/+$/, '');
+    const parts = currentPath.split('/').filter(Boolean);
+    const activeMode = parts.includes('redoc') ? 'redoc' : 'swagger';
+    const activeService = specs[parts.at(-1)] ? parts.at(-1) : 'auth';
+
+    const cardTemplate = (service) => `
+      <article class="card" data-service="${service.key}">
+        <div class="card-top">
+          <div>
+            <h3>${service.title}</h3>
+            <p class="desc">${service.description}</p>
+          </div>
+          <span class="state" data-state>Checking</span>
+        </div>
+        <div class="link-row">
+          <a class="link" href="${specs[service.key]}">Open JSON</a>
+          <a class="link" href="/api-docs/swagger/${service.key}">Swagger UI</a>
+          <a class="link" href="/api-docs/redoc/${service.key}">Redoc</a>
+        </div>
+      </article>
+    `;
+
+    servicesRoot.innerHTML = services.map(cardTemplate).join('');
+
+    const updateCardState = (serviceKey, ok) => {
+      const card = servicesRoot.querySelector(`[data-service="${serviceKey}"]`);
+      const state = card?.querySelector('[data-state]');
+      if (!state) return;
+      state.textContent = ok ? 'Online' : 'Check endpoint';
+      state.classList.toggle('offline', !ok);
+    };
+
+    const pingService = async (service) => {
+      try {
+        const response = await fetch(specs[service.key], { headers: { Accept: 'application/json' } });
+        updateCardState(service.key, response.ok);
+        return response.ok;
+      } catch (_) {
+        updateCardState(service.key, false);
+        return false;
+      }
+    };
+
+    const renderSwagger = (serviceKey) => {
+      viewer.classList.add('active');
+      swaggerRoot.hidden = false;
+      redocRoot.hidden = true;
+      swaggerRoot.innerHTML = '';
+      window.ui = SwaggerUIBundle({
+        url: specs[serviceKey],
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        displayRequestDuration: true,
+        docExpansion: 'list',
+        filter: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: 'StandaloneLayout',
+      });
+    };
+
+    const renderRedoc = (serviceKey) => {
+      viewer.classList.add('active');
+      swaggerRoot.hidden = true;
+      redocRoot.hidden = false;
+      redocRoot.innerHTML = '';
+      Redoc.init(specs[serviceKey], {
+        scrollYOffset: 24,
+        hideDownloadButton: false,
+        expandResponses: '200,201',
+        theme: { colors: { primary: { main: '#2563eb' } }, typography: { fontFamily: 'Inter, system-ui, sans-serif' } },
+      }, redocRoot);
+    };
+
+    (async () => {
+      const results = await Promise.all(services.map(pingService));
+      summary.textContent = `${results.filter(Boolean).length}/${services.length} specs reachable`;
+      if (activeMode === 'redoc') {
+        renderRedoc(activeService);
+      } else {
+        renderSwagger(activeService);
+      }
+    })();
+  </script>
+</body>
+</html>

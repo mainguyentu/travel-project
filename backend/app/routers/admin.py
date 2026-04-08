@@ -6,7 +6,7 @@ from app.core.errors import AppError
 from app.core.deps import require_admin
 from app.db.session import get_db
 from app.schemas.category import CategoryCreate, CategoryUpdate
-from app.schemas.destination import DestinationCreate, DestinationUpdate
+from app.schemas.destination import DestinationBulkCreate, DestinationCreate, DestinationUpdate
 from app.schemas.user import UserRoleUpdate, UserStatusUpdate
 from app.repositories.categories import CategoryRepository
 from app.repositories.destinations import DestinationRepository
@@ -211,6 +211,40 @@ def create_destination(
         ),
     )
     return response_success(destination_to_dict(destination), {"request_id": request.state.request_id})
+
+
+@router.post("/destinations/bulk", status_code=201)
+def create_destinations_bulk(
+    payload: DestinationBulkCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    service = DestinationService(db)
+    destinations_payload = [item.model_dump(exclude={"category_ids"}) | {"category_ids": item.category_ids} for item in payload.destinations]
+    destinations = service.create_many(destinations_payload)
+    write_audit_log(
+        db,
+        request,
+        "admin.destination.bulk_create",
+        actor_user_id=current_user.id,
+        actor_email=current_user.email,
+        actor_role=current_user.role,
+        target_type="destination",
+        target_id=str(len(destinations)),
+        payload=payload.model_dump(),
+    )
+    db.commit()
+    publish_event(
+        settings.kafka_topic_destination,
+        build_event(
+            EventType.DESTINATION_CREATED,
+            {"destinations": [destination_to_dict(destination) for destination in destinations]},
+            request_id=request.state.request_id,
+        ),
+    )
+    data = [destination_to_dict(destination) for destination in destinations]
+    return response_success(data, {"request_id": request.state.request_id, "count": len(data)})
 
 
 @router.put("/destinations/{destination_id}")

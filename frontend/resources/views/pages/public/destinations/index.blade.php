@@ -21,54 +21,6 @@
                 <aside class="filter-panel panel">
                     <h2 class="filter-panel-title">Bộ lọc</h2>
                     @include('components.filter-panel')
-                    {{-- <form action="{{ route('destinations.index') }}" method="GET">
-                        <div class="filter-group">
-                            <label for="category">Danh mục</label>
-                            <select class="public-select" name="category_slug" id="category">
-                                <option value="">Tất cả danh mục</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category['slug'] }}"
-                                        {{ (request('category_slug') ?? request('category')) === $category['slug'] ? 'selected' : '' }}>
-                                        {{ $category['name'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="filter-group">
-                            <label for="price_level">Mức giá</label>
-                            <select class="public-select" name="price_level" id="price_level">
-                                <option value="">Tất cả</option>
-                                <option value="1" {{ request('price_level') === '1' ? 'selected' : '' }}>$ - Tiết kiệm
-                                </option>
-                                <option value="2" {{ request('price_level') === '2' ? 'selected' : '' }}>$$ - Vừa phải
-                                </option>
-                                <option value="3" {{ request('price_level') === '3' ? 'selected' : '' }}>$$$ - Cao cấp
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="filter-group">
-                            <label for="rating">Đánh giá tối thiểu</label>
-                            <select class="public-select" name="rating_min" id="rating">
-                                <option value="">Tất cả</option>
-                                <option value="4.5"
-                                    {{ (request('rating_min') ?? request('rating')) === '4.5' ? 'selected' : '' }}>4.5+ ⭐
-                                </option>
-                                <option value="4"
-                                    {{ (request('rating_min') ?? request('rating')) === '4' ? 'selected' : '' }}>4+ ⭐
-                                </option>
-                                <option value="3.5"
-                                    {{ (request('rating_min') ?? request('rating')) === '3.5' ? 'selected' : '' }}>3.5+ ⭐
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="filter-actions">
-                            <button type="submit" class="btn-primary btn-block">Áp dụng bộ lọc</button>
-                            <a href="{{ route('destinations.index') }}" class="btn-secondary btn-block">Đặt lại</a>
-                        </div>
-                    </form> --}}
                 </aside>
 
                 <div>
@@ -128,4 +80,3 @@
         </div>
     </section>
 @endsection
-

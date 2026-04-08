@@ -10,6 +10,12 @@ Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publi
 - QA: có checklist test API local nhanh.
 - DevOps: nắm rõ biến môi trường và mode chạy.
 
+## Cập nhật theo tiến độ hiện tại
+
+- Bổ sung API docs portal tại gateway: `/api-docs`, specs theo từng service và trang Swagger/Redoc riêng.
+- Bổ sung endpoint admin bulk create destinations: `POST /api/v1/admin/destinations/bulk`.
+- Payload destination detail đã bao gồm thêm `insight` va `metrics`.
+
 ## Tài liệu liên quan trong backend
 
 - `docs/API_REFERENCE.md`: danh sách endpoint và payload mẫu.
@@ -178,6 +184,15 @@ PowerShell (Windows):
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
 	-ContentType "application/json" `
 	-Body '{"email":"user@alats.vn","password":"User@123"}'
+```
+
+API docs nhanh:
+
+```text
+http://localhost:8080/api-docs
+http://localhost:8080/api-docs/specs/admin.json
+http://localhost:8080/api-docs/swagger/admin
+http://localhost:8080/api-docs/redoc/admin
 ```
 
 Public list:

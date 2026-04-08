@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy import select, func, or_, update
 from app.db.models import Destination, Category, CategoryDestination, Rating, Favorite
 
@@ -12,9 +13,27 @@ class DestinationRepository:
     def get_by_id(self, destination_id: int) -> Destination | None:
         return self.db.get(Destination, destination_id)
 
+    def get_detail_by_id(self, destination_id: int) -> Destination | None:
+        stmt = (
+            select(Destination)
+            .where(Destination.id == destination_id)
+            .options(
+                selectinload(Destination.categories).joinedload(CategoryDestination.category),
+                joinedload(Destination.insight),
+                joinedload(Destination.metrics),
+            )
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
     def get_by_slug(self, slug: str) -> Destination | None:
         stmt = select(Destination).where(Destination.slug == slug)
         return self.db.execute(stmt).scalar_one_or_none()
+
+    def get_by_slugs(self, slugs: list[str]) -> list[Destination]:
+        if not slugs:
+            return []
+        stmt = select(Destination).where(Destination.slug.in_(slugs))
+        return self.db.execute(stmt).scalars().all()
 
     def get_by_ids(self, destination_ids: list[int]):
         if not destination_ids:

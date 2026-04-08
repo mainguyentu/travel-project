@@ -20,6 +20,13 @@ Phạm vi chính:
 - Thống kê analytics theo lượt xem/yêu thích/đánh giá.
 - Hạ tầng local và deploy bằng Docker Compose + GitHub Actions.
 
+## 0.1 Current Progress Snapshot (2026-04)
+
+- API docs portal đã hoạt động tại gateway qua `/api-docs` (raw specs + Swagger + Redoc theo từng service).
+- Frontend admin UI đã có đủ thao tác ghi dữ liệu cho users, categories, destinations.
+- Backend admin đã bổ sung endpoint bulk create destinations.
+- Destination detail payload đã bổ sung `insight` va `metrics` cho popup chi tiết frontend.
+
 ## 1. Cấu trúc workspace
 
 - `backend/`: FastAPI app, Alembic migration, seed script, test.
@@ -61,7 +68,7 @@ Yêu cầu:
 
 - Docker + Docker Compose
 
-Chạy toàn hệ thống:
+Chạy toàn hệ thống (lần đầu):
 
 ```bash
 docker compose up --build
@@ -72,6 +79,18 @@ PowerShell (Windows):
 ```powershell
 docker compose up --build
 ```
+
+Từ lần sau, khi chỉ thay đổi code nhỏ (không đổi dependency), chạy lại không cần build:
+
+```bash
+docker compose up -d
+```
+
+```powershell
+docker compose up -d
+```
+
+Với cấu hình hiện tại, backend API chạy `uvicorn --reload` và source code được bind mount nên thay đổi code sẽ tự áp dụng trong container.
 
 Kiểm tra nhanh:
 
@@ -132,7 +151,26 @@ Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`
 - Frontend UI (Docker gateway): `http://localhost:8080`
 - Frontend UI (chạy frontend local tách riêng): `http://127.0.0.1:8000`
 - API Gateway: `http://localhost:8080`
+- API Docs Portal: `http://localhost:8080/api-docs`
 - Health gateway: `GET /health`
+- OpenAPI specs:
+	- `http://localhost:8080/api-docs/specs/auth.json`
+	- `http://localhost:8080/api-docs/specs/destination.json`
+	- `http://localhost:8080/api-docs/specs/interaction.json`
+	- `http://localhost:8080/api-docs/specs/admin.json`
+	- `http://localhost:8080/api-docs/specs/analytics.json`
+- Swagger service docs:
+	- `http://localhost:8080/api-docs/swagger/auth`
+	- `http://localhost:8080/api-docs/swagger/destination`
+	- `http://localhost:8080/api-docs/swagger/interaction`
+	- `http://localhost:8080/api-docs/swagger/admin`
+	- `http://localhost:8080/api-docs/swagger/analytics`
+- Redoc service docs:
+	- `http://localhost:8080/api-docs/redoc/auth`
+	- `http://localhost:8080/api-docs/redoc/destination`
+	- `http://localhost:8080/api-docs/redoc/interaction`
+	- `http://localhost:8080/api-docs/redoc/admin`
+	- `http://localhost:8080/api-docs/redoc/analytics`
 - Analytics summary: `GET /api/v1/analytics/summary`
 - Swagger backend (monolith mode): `http://localhost:8000/docs`
 

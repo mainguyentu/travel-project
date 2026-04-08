@@ -20,6 +20,10 @@ class DestinationCreate(DestinationBase):
     category_ids: List[int] = []
 
 
+class DestinationBulkCreate(BaseModel):
+    destinations: List[DestinationCreate] = Field(min_length=1)
+
+
 class DestinationUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=180)
     slug: str | None = Field(default=None, max_length=220)

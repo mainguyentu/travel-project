@@ -197,6 +197,9 @@ def test_public_and_destinations():
 
     detail = client.get(f"/api/v1/destinations/{destination_id}")
     assert detail.status_code == 200
+    payload = detail.json()["data"]
+    assert "insight" in payload
+    assert "metrics" in payload
 
 
 def test_interaction_flow():
@@ -287,6 +290,95 @@ def test_admin_flow():
         assert "admin.category.create" in action_names
     finally:
         db.close()
+
+
+def test_admin_destination_list_and_create():
+    admin_email, _, category_id, _ = seed_basic()
+    token = login(admin_email, "Admin@123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    listed = client.get("/api/v1/admin/destinations", headers=headers)
+    assert listed.status_code == 200
+    assert isinstance(listed.json()["data"], list)
+
+    slug = f"admin-destination-{uuid4().hex[:8]}"
+    create_resp = client.post(
+        "/api/v1/admin/destinations",
+        headers=headers,
+        json={
+            "name": "Admin Destination",
+            "slug": slug,
+            "address": "Da Nang",
+            "description": "Created from admin endpoint",
+            "price_level": "medium",
+            "open_hour": "All day",
+            "img_url": "https://example.com/admin-destination.jpg",
+            "url_map": "https://maps.google.com",
+            "lat": 16.047079,
+            "lng": 108.20623,
+            "status": "active",
+            "category_ids": [category_id],
+        },
+    )
+    assert create_resp.status_code in (200, 201)
+
+    admin_list = client.get("/api/v1/admin/destinations", headers=headers)
+    assert admin_list.status_code == 200
+    assert any(item["slug"] == slug for item in admin_list.json()["data"])
+
+
+def test_admin_destination_bulk_create():
+    admin_email, _, category_id, _ = seed_basic()
+    token = login(admin_email, "Admin@123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    slug_a = f"bulk-destination-a-{uuid4().hex[:8]}"
+    slug_b = f"bulk-destination-b-{uuid4().hex[:8]}"
+
+    create_resp = client.post(
+        "/api/v1/admin/destinations/bulk",
+        headers=headers,
+        json={
+            "destinations": [
+                {
+                    "name": "Bulk Destination A",
+                    "slug": slug_a,
+                    "address": "Da Nang",
+                    "description": "Bulk create A",
+                    "price_level": "medium",
+                    "open_hour": "All day",
+                    "img_url": "https://example.com/bulk-a.jpg",
+                    "url_map": "https://maps.google.com",
+                    "lat": 16.047079,
+                    "lng": 108.20623,
+                    "status": "active",
+                    "category_ids": [category_id],
+                },
+                {
+                    "name": "Bulk Destination B",
+                    "slug": slug_b,
+                    "address": "Hue",
+                    "description": "Bulk create B",
+                    "price_level": "high",
+                    "open_hour": "08:00-22:00",
+                    "img_url": "https://example.com/bulk-b.jpg",
+                    "url_map": "https://maps.google.com",
+                    "lat": 16.4637,
+                    "lng": 107.5909,
+                    "status": "active",
+                    "category_ids": [category_id],
+                },
+            ]
+        },
+    )
+    assert create_resp.status_code in (200, 201)
+    assert create_resp.json()["meta"]["count"] == 2
+
+    admin_list = client.get("/api/v1/admin/destinations", headers=headers)
+    assert admin_list.status_code == 200
+    slugs = [item["slug"] for item in admin_list.json()["data"]]
+    assert slug_a in slugs
+    assert slug_b in slugs
 
 
 def test_admin_forbidden_for_non_admin_user():

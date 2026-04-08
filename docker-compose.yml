@@ -1,4 +1,10 @@
-﻿services:
+﻿x-backend-source: &backend_source
+  - ./backend:/app
+
+x-frontend-source: &frontend_source
+  - ./frontend:/var/www/html
+
+services:
   postgres:
     image: postgres:16
     environment:
@@ -57,12 +63,14 @@
       WORKER_RETRY_BACKOFF_SECONDS: ${WORKER_RETRY_BACKOFF_SECONDS:-0.5}
       JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-please-32chars!!}
       JWT_ISSUER: alats-travel
+      WATCHFILES_FORCE_POLLING: "true"
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://127.0.0.1","http://localhost","http://127.0.0.1:8000","http://localhost:8000","http://127.0.0.1:8080","http://localhost:8080","http://127.0.0.1:5173","http://localhost:5173"]}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes: *backend_source
     command: ["sh", "-lc", "alembic upgrade head && python scripts/seed.py"]
     restart: "no"
 
@@ -77,7 +85,8 @@
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    command: ["uvicorn", "app.apps.auth_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes: *backend_source
+    command: ["uvicorn", "app.apps.auth_service:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     restart: unless-stopped
 
   destination-service:
@@ -91,7 +100,8 @@
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    command: ["uvicorn", "app.apps.destination_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes: *backend_source
+    command: ["uvicorn", "app.apps.destination_service:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     restart: unless-stopped
 
   interaction-service:
@@ -105,7 +115,8 @@
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    command: ["uvicorn", "app.apps.interaction_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes: *backend_source
+    command: ["uvicorn", "app.apps.interaction_service:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     restart: unless-stopped
 
   admin-service:
@@ -119,7 +130,8 @@
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    command: ["uvicorn", "app.apps.admin_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes: *backend_source
+    command: ["uvicorn", "app.apps.admin_service:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     restart: unless-stopped
 
   analytics-service:
@@ -137,7 +149,8 @@
         condition: service_started
       elasticsearch:
         condition: service_started
-    command: ["uvicorn", "app.apps.analytics_service:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes: *backend_source
+    command: ["uvicorn", "app.apps.analytics_service:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     restart: unless-stopped
 
   worker-service:
@@ -153,6 +166,7 @@
         condition: service_started
       elasticsearch:
         condition: service_started
+    volumes: *backend_source
     command: ["python", "-m", "app.worker.consumer"]
     restart: unless-stopped
 
@@ -205,6 +219,7 @@
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes: *frontend_source
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/up"]
       interval: 30s
@@ -214,11 +229,11 @@
     restart: unless-stopped
 
   api-gateway:
-    image: nginx:1.27
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
     ports:
       - "8080:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - auth-service
       - destination-service

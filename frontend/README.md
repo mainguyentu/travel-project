@@ -1,13 +1,13 @@
 # Frontend - Travel Project
 
-Frontend được xây dựng bằng Laravel (Blade + SSR) và tích hợp backend thông qua API Gateway.
+Frontend được xây dựng bằng Laravel (Blade + SSR) và tích hợp backend thông qua API gateway.
 Trang destinations sử dụng popup chi tiết (render bằng JS) thay cho route chi tiết riêng.
 
 Frontend là lớp giao diện chính của Travel Project, phục vụ cả public flow và admin flow thông qua backend API `/api/v1/*`.
 
 Mục tiêu:
 
-- Public pages cho khám phá điểm đến.
+- Public pages cho khám phá địa điểm.
 - User pages cho hồ sơ, yêu thích, đánh giá.
 - Admin pages cho quản trị users/categories/destinations/stats.
 
@@ -19,7 +19,7 @@ Mục tiêu:
 - Tailwind CSS `^4`
 - Axios/Guzzle cho gọi API backend
 
-## 2. Cấu trúc thư mục chính
+## 2. Cau truc thu muc chinh
 
 - `app/Http/Controllers/`: điều phối request UI và gọi API backend.
 - `app/Services/ApiClient.php`: HTTP client gọi backend (`/api/v1/*`).
@@ -38,6 +38,7 @@ Ghi chú luồng chi tiết destination:
 
 - Người dùng xem chi tiết ngay tại trang `GET /destinations` thông qua popup.
 - Popup gọi trực tiếp API `GET /api/v1/destinations/{destinationId}` bằng JavaScript để lấy dữ liệu chi tiết.
+- Payload chi tiết hiện tại có thêm `insight` và `metrics` để hiển thị phần thông tin nâng cao trong modal.
 - Không còn route UI riêng cho trang `GET /destinations/{destinationId}`.
 
 Auth (guest):
@@ -58,8 +59,16 @@ Admin (middleware `session.admin`, prefix `/admin`):
 
 - `GET /admin`
 - `GET /admin/users`
+- `PATCH /admin/users/{userId}/status`
+- `PATCH /admin/users/{userId}/role`
 - `GET /admin/categories`
+- `POST /admin/categories`
+- `PUT /admin/categories/{categoryId}`
+- `DELETE /admin/categories/{categoryId}`
 - `GET /admin/destinations`
+- `POST /admin/destinations`
+- `PUT /admin/destinations/{destinationId}`
+- `DELETE /admin/destinations/{destinationId}`
 - `GET /admin/stats`
 
 ## 4. Cấu hình API backend
@@ -89,12 +98,20 @@ Ví dụ:
 - Bật/tắt: `API_CACHE_ENABLED`
 - TTL mặc định: `API_CACHE_TTL`
 - TTL theo path:
-	- `API_CACHE_TTL_LANDING`
-	- `API_CACHE_TTL_DESTINATIONS`
-	- `API_CACHE_TTL_ADMIN_STATS`
+  - `API_CACHE_TTL_LANDING`
+  - `API_CACHE_TTL_DESTINATIONS`
+  - `API_CACHE_TTL_ADMIN_STATS`
 - Invalidate cache sau request ghi (`POST/PUT/DELETE`): `API_CACHE_INVALIDATE_ON_WRITE`
 
-Mặc định cache áp dụng cho endpoint public (`public/*`, `destinations*`) và không cache request có token để tránh cache dữ liệu cá nhân (`API_CACHE_AUTHENTICATED=false`).
+mặc định cache áp dụng cho endpoint public (`public/*`, `destinations*`) và không cache request có token để tránh cache dữ liệu cá nhân (`API_CACHE_AUTHENTICATED=false`).
+
+### 4.2 Token refresh tự động
+
+`ApiClient` đã hỗ trợ auto refresh token:
+
+- Nếu request API trả về `401` và request không nằm trong `auth/*`, client sẽ thử gọi `POST /api/v1/auth/refresh` bằng `refresh_token` trong session.
+- Nếu refresh thành công, request gốc được retry 1 lần.
+- Nếu refresh thất bại, session auth (`access_token`, `refresh_token`, `user`) sẽ bị xoá.
 
 ## 5. Chạy local
 
@@ -138,13 +155,14 @@ Mặc định UI: `http://127.0.0.1:8000`
 
 Khi chạy full Docker stack, UI đi qua gateway tại `http://localhost:8080`.
 
-### 5.3 Kiểm tra kết nối API nhanh
+### 5.3 Kiểm tra kết nối API nhanh:
 
 Đảm bảo backend stack đang chạy qua gateway (`http://localhost:8080`), sau đó truy cập:
 
 - Landing page: `GET /`
 - Destinations page: `GET /destinations`
 - Login page: `GET /login`
+- API docs portal: `http://localhost:8080/api-docs`
 
 ## 6. Build và test
 
@@ -166,23 +184,30 @@ Build assets (local/CI):
 npm run build
 ```
 
-## 7. Luồng xác thực hiện tại
+## 7. Luồng xác thực hiện tại:
 
 - Login/Register gọi backend auth API.
 - `access_token` và `refresh_token` lưu trong session Laravel.
 - `ApiClient` tự gắn header Authorization khi có token trong session.
-- Logout gọi `auth/logout` và xóa session token phía frontend.
+- Khi token hết hạn, `ApiClient` auto refresh và retry 1 lần.
+- Logout gọi `auth/logout` và xoá session token phía frontend.
 
-## 8. Tích hợp với backend
+## 8. Tích hợp với Backend:
 
-Khuyến nghị chạy backend bằng Docker Compose từ root project:
+Khuyến nghị chạy bằng Docker Compose từ root project:
 
 ```bash
 cd ..
 docker compose up --build
 ```
+Nếu muốn chạy Frontend riêng thì chạy Backend từ root project:
 
-Sau đó quay lại frontend để chạy UI local như mục 5.
+```bash
+cd ..
+docker compose up --build api-gateway
+```
+
+Sau sau đó quay lại frontend để chạy UI local như mục 5.
 
 Nếu cần chỉnh endpoint backend cho môi trường khác, cập nhật `API_BASE_URL` trong `.env` frontend.
 
@@ -199,11 +224,17 @@ Tài liệu hệ thống liên quan:
 - `../DOCKER_INTEGRATION.md`
 - `../design-docs/README.md`
 
-## 9. Ghi chú phát triển
+Tài liệu API interactive:
+
+- `http://localhost:8080/api-docs`
+- `http://localhost:8080/api-docs/swagger/admin`
+- `http://localhost:8080/api-docs/redoc/admin`
+
+## 9. Ghi chú phát triển:
 
 - Ưu tiên tách logic gọi API ở `ApiClient` và giữ controller mỏng.
 - Giữ route naming nhất quán theo domain (`destinations`, `favorites`, `admin.*`).
 - Khi đổi contract API backend, cập nhật đồng thời:
-	- `app/Services/ApiClient.php`
-	- controller liên quan
-	- README này (nếu thay đổi behavior)
+  - `app/Services/ApiClient.php`
+  - controller liên quan
+  - README này (nếu thay đổi behavior)
