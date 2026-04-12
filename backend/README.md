@@ -20,6 +20,7 @@ Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publi
 
 - `docs/API_REFERENCE.md`: danh sách endpoint và payload mẫu.
 - `docs/ARCHITECTURE.md`: kiến trúc runtime, data flow, gateway route map.
+- `docs/INSIGHT_PROCESSING.md`: thuật toán và quy tắc cập nhật insight theo rating/comment.
 - `docs/SECURITY_RUNBOOK.md`: quy trình bảo mật, rotation secrets, incident checklist.
 - `docs/WORKER_RUNBOOK.md`: vận hành worker, DLQ và replay.
 - `docs/OBSERVABILITY_BASELINE.md`: guardrails DB/Redis và threshold cảnh báo.
@@ -32,6 +33,7 @@ Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publi
 - `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin, analytics).
 - `app/routers/`: endpoint theo domain.
 - `app/services/`, `app/repositories/`: business logic và data access.
+- `app/services/insight.py`: xử lý insight theo luồng tạo destination và cập nhật rating.
 - `app/db/`: models, session, base.
 - `app/worker/`: Kafka consumer xử lý analytics/search bất đồng bộ.
 - `alembic/`: migration scripts.

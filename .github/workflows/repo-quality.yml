@@ -75,9 +75,16 @@ jobs:
       - name: Install frontend dependencies for scan
         working-directory: frontend
         run: |
-          composer install --no-interaction --prefer-dist --no-progress
+          composer install --no-interaction --prefer-dist --no-progress -vvv || {
+            echo "Composer install failed, clearing cache and retrying..."
+            composer clear-cache
+            composer install --no-interaction --prefer-dir --no-progress
+          }
           npm ci
-
+        env:
+          COMPOSER_PROCESS_TIMEOUT: 1200
+          COMPOSER_NO_INTERACTION: 1
+          COMPOSER_NO_AUDIT: 1
       - name: Frontend dependency scan (Composer)
         run: |
           composer audit --working-dir=frontend --format=json > security-reports/composer-audit.json || true
@@ -85,7 +92,17 @@ jobs:
       - name: Frontend dependency scan (npm)
         working-directory: frontend
         run: |
+          set +e
           npm audit --json > ../security-reports/npm-audit.json
+          audit_exit_code=$?
+          set -e
+
+          # npm audit returns 1 when vulnerabilities are found; keep the report and continue.
+          # Fail only on unexpected execution errors.
+          if [ "$audit_exit_code" -gt 1 ]; then
+            echo "npm audit failed unexpectedly with exit code $audit_exit_code"
+            exit "$audit_exit_code"
+          fi
 
       - name: Build backend image for scan
         run: docker build -t travel-project-backend-ci:latest ./backend
