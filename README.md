@@ -135,21 +135,13 @@ Xem hướng dẫn chi tiết tại `frontend/README.md`.
 Luồng cơ bản:
 
 ```bash
-
 cd frontend
-
 composer install
-
 cp .env.example .env
-
 php artisan key:generate
-
 npm install
-
 php artisan serve
-
 npm run dev
-
 ```
 
 Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`.
@@ -211,6 +203,8 @@ Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`
 
 - Kiến trúc backend: `backend/docs/ARCHITECTURE.md`
 
+- Thuật toán insight destination: `backend/docs/INSIGHT_PROCESSING.md`
+
 - Runbook deploy: `backend/docs/DEPLOYMENT_RUNBOOK.md`
 
 - Runbook bảo mật: `backend/docs/SECURITY_RUNBOOK.md`
@@ -252,17 +246,10 @@ Chỉ dùng cho môi trường dev/test local.
 Ví dụ:
 
 ```powershell
-
 curl.exe http://localhost:8080/health
-
-
-
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
-
 	-ContentType "application/json" `
-
 	-Body '{"email":"user@alats.vn","password":"User@123"}'
-
 ```
 
 ## 10. Pipeline Chất Lượng Toàn Repo (P4)
@@ -282,17 +269,13 @@ Nội dung chính:
 Chạy local một lệnh trên Windows PowerShell:
 
 ```powershell
-
 ./scripts/ci.ps1
-
 ```
 
 Nếu cần bỏ qua security scan (chạy nhanh vòng test/build):
 
 ```powershell
-
 ./scripts/ci.ps1 -SkipSecurity
-
 ```
 
 ## 11. Triển Khai CI/CD Sản Phẩm (P5)

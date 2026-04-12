@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.db.models import AuditLog, Category, CategoryDestination, Destination, User
+from app.db.models import AuditLog, Category, CategoryDestination, Destination, DestinationInsight, User
 from app.db.session import SessionLocal
 from app.main import app
 
@@ -327,6 +327,34 @@ def test_admin_destination_list_and_create():
     assert any(item["slug"] == slug for item in admin_list.json()["data"])
 
 
+def test_admin_destination_single_create_autogenerates_slug():
+    admin_email, _, category_id, _ = seed_basic()
+    token = login(admin_email, "Admin@123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_resp = client.post(
+        "/api/v1/admin/destinations",
+        headers=headers,
+        json={
+            "name": "Bảo tàng 3D Art In Paradise",
+            "address": "Da Nang",
+            "description": "Created without slug",
+            "price_level": "medium",
+            "open_hour": "All day",
+            "img_url": "https://example.com/admin-destination.jpg",
+            "url_map": "https://maps.google.com",
+            "lat": 16.047079,
+            "lng": 108.20623,
+            "status": "active",
+            "category_ids": [category_id],
+        },
+    )
+    assert create_resp.status_code in (200, 201)
+    data = create_resp.json()["data"]
+    assert data["slug"]
+    assert data["slug"].startswith("bao-tang-3d-art-in-paradise")
+
+
 def test_admin_destination_bulk_create():
     admin_email, _, category_id, _ = seed_basic()
     token = login(admin_email, "Admin@123")
@@ -335,6 +363,16 @@ def test_admin_destination_bulk_create():
     slug_a = f"bulk-destination-a-{uuid4().hex[:8]}"
     slug_b = f"bulk-destination-b-{uuid4().hex[:8]}"
 
+    existing_category_name = "Điểm thu hút khách du lịch"
+    db = SessionLocal()
+    try:
+        existing = db.query(Category).filter(Category.name == existing_category_name).first()
+        if not existing:
+            db.add(Category(name=existing_category_name, slug=f"tourist-spot-{uuid4().hex[:6]}", descriptions="Existing"))
+            db.commit()
+    finally:
+        db.close()
+
     create_resp = client.post(
         "/api/v1/admin/destinations/bulk",
         headers=headers,
@@ -342,21 +380,33 @@ def test_admin_destination_bulk_create():
             "destinations": [
                 {
                     "name": "Bulk Destination A",
-                    "slug": slug_a,
                     "address": "Da Nang",
                     "description": "Bulk create A",
-                    "price_level": "medium",
+                    "rating": 4.4,
+                    "price": "333.920 ₫",
                     "open_hour": "All day",
-                    "img_url": "https://example.com/bulk-a.jpg",
-                    "url_map": "https://maps.google.com",
+                    "image": ["https://example.com/bulk-a.jpg"],
+                    "maps_url": "https://maps.google.com",
                     "lat": 16.047079,
                     "lng": 108.20623,
                     "status": "active",
                     "category_ids": [category_id],
+                    "category": [existing_category_name, "Bảo tàng"],
+                    "reviews": [
+                        {
+                            "author": "A",
+                            "rating": 5,
+                            "text": "Phong cảnh đẹp, giá hợp lý",
+                        },
+                        {
+                            "author": "B",
+                            "rating": 4,
+                            "text": "Hơi đông nhưng đi lại thuận tiện",
+                        },
+                    ],
                 },
                 {
                     "name": "Bulk Destination B",
-                    "slug": slug_b,
                     "address": "Hue",
                     "description": "Bulk create B",
                     "price_level": "high",
@@ -374,11 +424,38 @@ def test_admin_destination_bulk_create():
     assert create_resp.status_code in (200, 201)
     assert create_resp.json()["meta"]["count"] == 2
 
+    created_payload = create_resp.json()["data"]
+    created_slugs = [item["slug"] for item in created_payload]
+    assert len(created_slugs) == 2
+    assert all(created_slugs)
+    assert len(set(created_slugs)) == 2
+
     admin_list = client.get("/api/v1/admin/destinations", headers=headers)
     assert admin_list.status_code == 200
     slugs = [item["slug"] for item in admin_list.json()["data"]]
-    assert slug_a in slugs
-    assert slug_b in slugs
+    assert all(slug in slugs for slug in created_slugs)
+
+    db = SessionLocal()
+    try:
+        created_a = db.query(Destination).filter(Destination.slug == created_slugs[0]).first()
+        assert created_a is not None
+        assert float(created_a.rating_avg or 0) == 4.4
+        assert created_a.price_raw_text == "333.920 ₫"
+
+        category_names = [link.category.name for link in created_a.categories]
+        assert existing_category_name in category_names
+        assert "Bảo tàng" in category_names
+
+        duplicate_existing = db.query(Category).filter(Category.name == existing_category_name).count()
+        assert duplicate_existing == 1
+
+        insight = db.query(DestinationInsight).filter(DestinationInsight.destination_id == created_a.id).first()
+        assert insight is not None
+        assert insight.final_data is not None
+        assert insight.final_data.get("status") in ("low_confidence", "reliable", "insufficient_data")
+        assert isinstance((insight.insight_cache or {}).get("total_reviews", 0), int)
+    finally:
+        db.close()
 
 
 def test_admin_forbidden_for_non_admin_user():

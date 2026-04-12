@@ -147,9 +147,11 @@ Query params:
 - Tự động tăng `view_count` khi xem chi tiết.
 - Response chi tiết bao gồm thêm `insight` và `metrics`.
 
-`insight` được tạo từ dữ liệu tổng hợp của destination và có thể được cập nhật khi có rating hoặc dữ liệu worker mới.
+`insight` được khởi tạo khi tạo destination và được cập nhật khi có rating mới hoặc khi bulk create nhận trường `reviews`.
 
 `final_data` bao gồm thêm trường `status` với các giá trị `insufficient_data`, `low_confidence`, `reliable`.
+
+Chi tiết thuật toán và quy tắc xử lý insight xem tại `docs/INSIGHT_PROCESSING.md`.
 
 Mẫu `data`:
 
@@ -312,14 +314,19 @@ Body bulk create mẫu:
       "slug": "my-khe-beach",
       "address": "Vo Nguyen Giap, Da Nang",
       "description": "Bãi biển nổi tiếng",
-      "price_level": "medium",
+      "price": "333.920 ₫",
       "open_hour": "All day",
-      "img_url": "https://example.com/mykhe.jpg",
-      "url_map": "https://maps.google.com",
+      "image": ["https://example.com/mykhe.jpg"],
+      "maps_url": "https://maps.google.com",
       "lat": 16.0595,
       "lng": 108.2466,
       "status": "active",
-      "category_ids": [1, 2]
+      "category_ids": [1, 2],
+      "category": ["Điểm thu hút khách du lịch", "Bảo tàng"],
+      "reviews": [
+        {"rating": 5, "text": "Phong cảnh đẹp, giá hợp lý"},
+        {"rating": 4, "text": "Hơi đông nhưng đi lại thuận tiện"}
+      ]
     },
     {
       "name": "Ba Na Hills",
@@ -343,7 +350,10 @@ Lưu ý bulk create:
 
 - Duplicate slug trong payload sẽ trả `VALIDATION_ERROR` (400).
 - Slug đã tồn tại trong DB sẽ trả `CONFLICT` (409).
-- Category IDs được kiểm tra trước khi tạo destination.
+- `price` dạng string sẽ được map sang `price_raw_text`.
+- Có thể gửi đồng thời `category_ids` và `category` (danh sách tên category).
+- Với `category`: hệ thống tìm category theo tên tương tự (không phân biệt hoa thường/dấu tiếng Việt). Nếu chưa có sẽ tự tạo mới rồi gắn vào destination.
+- `reviews` chỉ dùng để tính `insight` cho destination, không lưu vào bảng ratings.
 
 ### Admin Stats
 

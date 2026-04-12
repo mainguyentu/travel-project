@@ -85,6 +85,22 @@ Sự kiện được publish từ routers:
 
 Khi xử lý thất bại sau retry, event được đẩy sang `KAFKA_DLQ_TOPIC`.
 
+## Insight Flow cho Destination
+
+Luồng Insight hiện tại được xử lý trực tiếp ở service layer, không phụ thuộc worker:
+
+1. Khi tạo destination mới (`POST /api/v1/admin/destinations` hoặc bulk create), `DestinationService` gọi `InsightService.initialize_for_destination(...)` để khởi tạo dữ liệu nền.
+2. Khi user upsert rating (`PUT /api/v1/me/ratings/{destination_id}`), `InteractionService` gọi `InsightService.apply_rating_update(...)` để cập nhật insight theo cơ chế incremental.
+3. Payload chi tiết destination (`GET /api/v1/destinations/{id}`) trả trực tiếp cả `insight` và `metrics`.
+
+Đặc điểm chính của pipeline Insight:
+
+- Có lọc spam/advertisement cơ bản cho comment trước khi tính điểm.
+- Có confidence blending để giảm nhiễu khi số lượng review còn thấp.
+- Dùng `insight_cache` để cập nhật O(1), tránh quét lại toàn bộ lịch sử đánh giá sau mỗi lần rating.
+
+Tài liệu chi tiết thuật toán: `docs/INSIGHT_PROCESSING.md`.
+
 ## Security và kiểm soát truy cập
 
 - JWT access/refresh token cho auth.
@@ -108,6 +124,7 @@ Khi mutate dữ liệu admin (categories/destinations), cache liên quan đượ
 ## Data và migration
 
 - Alembic quản lý schema migration.
+- Migration `0004_destination_insight_cache` bổ sung cột `insight_cache` trong bảng `destination_insights`.
 - `scripts/seed.py` tạo dữ liệu mẫu local.
 - Tài khoản seed mặc định:
   - `admin@alats.vn / Admin@123`
