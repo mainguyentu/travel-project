@@ -77,7 +77,8 @@ jobs:
         run: |
           composer install --no-interaction --prefer-dist --no-progress
           npm ci
-
+        env:
+          COMPOSER_PROCESS_TIMEOUT: 600
       - name: Frontend dependency scan (Composer)
         run: |
           composer audit --working-dir=frontend --format=json > security-reports/composer-audit.json || true
