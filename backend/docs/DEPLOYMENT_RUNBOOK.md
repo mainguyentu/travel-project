@@ -88,3 +88,62 @@ Kết quả được lưu thành artifact `slo-report-<env>-<run_id>`.
    - Kiểm tra logs gateway/backend/worker.
    - Nếu lỗi nghiêm trọng: rollback ngay qua production workflow với `rollback_to_tag`.
 3. Ghi nhận incident theo `SECURITY_RUNBOOK.md` và `OBSERVABILITY_BASELINE.md`.
+
+## 9) Staging Rollout Checklist (Destination Image -> Cloudinary)
+
+Checklist này dùng cho rollout tính năng migrate destination images lên Cloudinary trên staging.
+
+### 9.1 Pre-deploy checks
+
+- [ ] Cloudinary credential đã đủ trên staging `.env`:
+   - `CLOUDINARY_CLOUD_NAME`
+   - `CLOUDINARY_API_KEY`
+   - `CLOUDINARY_API_SECRET`
+   - `CLOUDINARY_UPLOAD_FOLDER`
+- [ ] Flag ban đầu để `DESTINATION_IMAGE_CLOUDINARY_ENABLED=false`.
+- [ ] Deploy env có đầy đủ tham số timeout/limit:
+   - `DESTINATION_IMAGE_TIMEOUT_SECONDS`
+   - `DESTINATION_IMAGE_MAX_BYTES`
+   - `DESTINATION_IMAGE_UPLOAD_CONCURRENCY`
+   - `DESTINATION_IMAGE_BACKFILL_BATCH_SIZE`
+   - `DESTINATION_IMAGE_BACKFILL_SLEEP_SECONDS`
+   - `DESTINATION_IMAGE_BACKFILL_CHECKPOINT_FILE`
+- [ ] Đảm bảo path checkpoint writable trong container (`./.runtime/...` mặc định).
+
+### 9.2 Deploy và smoke khi flag OFF
+
+- [ ] Trigger workflow staging deploy với image tag cần rollout.
+- [ ] Xác minh compose đã lên đủ service: `auth-service`, `destination-service`, `interaction-service`, `admin-service`, `analytics-service`, `worker-service`, `api-gateway`.
+- [ ] Chạy post-deploy SLO check và xác minh pass:
+   - `/health`
+   - `/api/v1/destinations?page=1&limit=5`
+   - `/api/v1/analytics/summary`
+
+### 9.3 Bật online migration (flag ON)
+
+- [ ] Set `DESTINATION_IMAGE_CLOUDINARY_ENABLED=true` trên staging và restart backend services.
+- [ ] Test `POST /api/v1/admin/destinations` với URL ảnh không phải Cloudinary.
+- [ ] Xác minh response/DB:
+   - `img_urls` là URL Cloudinary (hoặc fallback URL gốc nếu lỗi per-url)
+   - `img_url` = phần tử đầu tiên của `img_urls`
+- [ ] Test `POST /api/v1/admin/destinations/bulk` và `PUT /api/v1/admin/destinations/{id}` theo cùng rule.
+- [ ] Kiểm tra log có field theo thiết kế khi fallback: `destination_id`, `source_url`, `reason`, `stage`.
+
+### 9.4 Canary backfill trên staging
+
+- [ ] Chạy dry backfill nhỏ để kiểm tra luồng:
+
+```bash
+python scripts/backfill_destination_images.py --batch-size 50 --max-batches 2
+```
+
+- [ ] Xác minh file checkpoint được tạo/cập nhật.
+- [ ] Xác minh log tổng kết batch có các chỉ số: `processed`, `migrated`, `skipped`, `fallback`.
+- [ ] Chạy lại cùng checkpoint để xác minh idempotent/resume không migrate trùng.
+
+### 9.5 Exit criteria cho staging
+
+- [ ] SLO sau deploy và sau backfill vẫn trong ngưỡng.
+- [ ] Không có error rate bất thường trên worker/gateway/backend logs.
+- [ ] Dữ liệu destination mới tạo/sửa trên staging đã tuân thủ rule Cloudinary/fallback.
+- [ ] Có bằng chứng (artifact + log + checkpoint) để sign-off trước production rollout.

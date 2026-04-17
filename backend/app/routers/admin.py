@@ -170,11 +170,18 @@ def delete_category(category_id: int, request: Request, db: Session = Depends(ge
 
 
 @router.get("/destinations")
-def list_destinations(request: Request, status: str | None = None, page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=1, le=100), db: Session = Depends(get_db)):
+def list_destinations(
+    request: Request,
+    status: str | None = None,
+    keyword: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
     offset = (page - 1) * limit
     repo = DestinationRepository(db)
-    items = repo.list_admin(status, offset, limit)
-    total = repo.count_admin(status)
+    items = repo.list_admin(status, keyword, offset, limit)
+    total = repo.count_admin(status, keyword)
     data = [destination_to_dict(d) for d in items]
     meta = {"request_id": request.state.request_id, "page": page, "limit": limit, "total": total}
     return response_success(data, meta)

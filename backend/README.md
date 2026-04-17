@@ -29,7 +29,7 @@ Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publi
 
 ## Cấu trúc chính
 
-- `app/main.py`: app tổng hợp toàn bộ router (monolith mode).
+- `app/main.py`: app tổng hợp toàn bộ router (monolith mode, chạy bằng `uvicorn app.main:app`).
 - `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin, analytics).
 - `app/routers/`: endpoint theo domain.
 - `app/services/`, `app/repositories/`: business logic và data access.
@@ -66,6 +66,10 @@ Các biến chính:
 - `KAFKA_ENABLED`, `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC_*`, `KAFKA_DLQ_TOPIC`, `KAFKA_CONSUMER_GROUP`
 - `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTICSEARCH_INDEX`, `SEARCH_USE_ELASTICSEARCH`
 - `WORKER_RETRY_MAX`, `WORKER_RETRY_BACKOFF_SECONDS`
+- `DESTINATION_IMAGE_CLOUDINARY_ENABLED`
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_FOLDER`
+- `DESTINATION_IMAGE_TIMEOUT_SECONDS`, `DESTINATION_IMAGE_MAX_BYTES`, `DESTINATION_IMAGE_UPLOAD_CONCURRENCY`
+- `DESTINATION_IMAGE_BACKFILL_BATCH_SIZE`, `DESTINATION_IMAGE_BACKFILL_SLEEP_SECONDS`, `DESTINATION_IMAGE_BACKFILL_CHECKPOINT_FILE`
 
 Lưu ý bảo mật cấu hình:
 
@@ -117,6 +121,18 @@ Replay event từ DLQ:
 python scripts/replay_dlq.py --limit 100
 ```
 
+Backfill ảnh destination lên Cloudinary (batch + checkpoint/resume):
+
+```bash
+python scripts/backfill_destination_images.py --batch-size 50
+```
+
+Ví dụ chạy thử giới hạn 2 batch đầu:
+
+```bash
+python scripts/backfill_destination_images.py --batch-size 50 --max-batches 2
+```
+
 ## Chạy theo service (không gateway)
 
 ```bash
@@ -137,7 +153,9 @@ docker compose up --build
 
 Gateway: `http://localhost:8080`
 
-Frontend khi chạy qua gateway cũng ở `http://localhost:8080` (non-API routes).
+Frontend khi chạy full Docker Compose ở `http://localhost` (service `frontend`, cổng host 80).
+
+Gateway chỉ phục vụ API và docs portal; root `/` trả về trạng thái gateway, không proxy frontend.
 
 Route map qua gateway:
 
@@ -233,3 +251,4 @@ pytest tests -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xm
 - Tài khoản mẫu từ `scripts/seed.py` chỉ dùng cho local/testing.
 - Tránh đưa secrets hoặc internal URL vào tài liệu public.
 - Khi deploy staging/production, tham chiếu `docs/DEPLOYMENT_RUNBOOK.md` để cấu hình secrets/workflows đúng chuẩn.
+- Khi backend code hoặc route map thay đổi trong Docker, rebuild và force recreate các backend services cùng `api-gateway` để tránh container dùng image hoặc upstream cũ.

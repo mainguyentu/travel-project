@@ -109,7 +109,7 @@ class AdminFlowTest extends TestCase
                 ]);
             
             $mock->shouldReceive('get')
-                ->with('admin/destinations', ['page' => 1, 'limit' => 50])
+                ->with('admin/destinations', ['page' => 1, 'limit' => 20])
                 ->once()
                 ->andReturn([
                     'success' => true,
@@ -121,6 +121,11 @@ class AdminFlowTest extends TestCase
                         'rating_avg' => 4.8,
                         'view_count' => 99,
                     ]],
+                    'meta' => [
+                        'page' => 1,
+                        'limit' => 20,
+                        'total' => 1,
+                    ],
                 ]);
         });
 
@@ -131,6 +136,40 @@ class AdminFlowTest extends TestCase
         $response->assertOk();
         $response->assertViewIs('pages.admin.destinations.index');
         $response->assertViewHas('destinations', fn (array $destinations) => count($destinations) === 1);
+    }
+
+    public function test_admin_destinations_page_forwards_keyword_filter(): void
+    {
+        $this->mock(ApiClient::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('get')
+                ->with('admin/categories')
+                ->once()
+                ->andReturn([
+                    'success' => true,
+                    'data' => [],
+                ]);
+
+            $mock->shouldReceive('get')
+                ->with('admin/destinations', ['page' => 1, 'limit' => 20, 'keyword' => 'khe'])
+                ->once()
+                ->andReturn([
+                    'success' => true,
+                    'data' => [],
+                    'meta' => [
+                        'page' => 1,
+                        'limit' => 20,
+                        'total' => 0,
+                    ],
+                ]);
+        });
+
+        $response = $this->actingAs($this->adminUser())
+            ->withSession($this->adminSession())
+            ->get('/admin/destinations?keyword=khe');
+
+        $response->assertOk();
+        $response->assertViewIs('pages.admin.destinations.index');
+        $response->assertViewHas('keyword', 'khe');
     }
 
     public function test_admin_stats_page_renders_metrics_lists(): void

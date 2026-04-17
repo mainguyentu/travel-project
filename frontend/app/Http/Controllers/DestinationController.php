@@ -25,7 +25,7 @@ class DestinationController extends Controller
         $keyword = request('keyword', request('search'));
         $sort = request('sort');
 
-        $query = ['page' => $page, 'limit' => 20];
+        $query = ['page' => $page, 'limit' => 15];
         
         if ($category) {
             $query['category_slug'] = $category;
@@ -47,7 +47,7 @@ class DestinationController extends Controller
         $requestFailed = ($response['success'] ?? true) === false;
         $meta = $response['meta'] ?? [];
         $pageValue = (int) ($meta['page'] ?? 1);
-        $limitValue = (int) ($meta['limit'] ?? 20);
+        $limitValue = (int) ($meta['limit'] ?? 15);
         $total = (int) ($meta['total'] ?? 0);
         $lastPage = $limitValue > 0 ? (int) ceil($total / $limitValue) : 1;
 

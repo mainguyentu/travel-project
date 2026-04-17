@@ -3,7 +3,7 @@
 Hệ thống gợi ý và quản trị điểm đến du lịch, gồm:
 
 - Backend FastAPI (service split qua API Gateway)
-- Frontend Laravel Blade (SSR) gọi API qua gateway
+- Frontend Laravel Blade (SSR) gọi API qua gateway; trong Docker Compose, UI chạy ở service `frontend` riêng, còn `api-gateway` chỉ phục vụ API và docs
 - Hạ tầng local bằng Docker Compose (PostgreSQL, Redis, Kafka, Elasticsearch, Nginx)
 
 README này là tài liệu tổng để onboard nhanh toàn dự án.
@@ -51,7 +51,8 @@ Các container chính:
 - `admin-service`
 - `analytics-service`
 - `worker-service`
-- `api-gateway` (Nginx, `http://localhost:8080`)
+- `frontend` (Laravel, `http://localhost` trong Docker Compose; nội bộ chạy `php artisan serve` trên `8001`)
+- `api-gateway` (Nginx, `http://localhost:8080` cho API và docs)
 
 Gateway route map:
 
@@ -61,6 +62,8 @@ Gateway route map:
 - `/api/v1/me/*` -> `interaction-service`
 - `/api/v1/admin/*` -> `admin-service`
 - `/api/v1/analytics/*` -> `analytics-service`
+
+Lưu ý: gateway không proxy frontend; root `/` trả về trạng thái của gateway, còn UI public/admin chạy qua service `frontend` ở `http://localhost`.
 
 ## 3. Bắt Đầu Nhanh (khuyến nghị)
 
@@ -91,6 +94,12 @@ docker compose up -d
 ```
 
 Với cấu hình hiện tại, backend API chạy `uvicorn --reload` và source code được bind mount nên thay đổi code sẽ tự áp dụng trong container.
+
+Sau khi stack lên, mở:
+
+- Frontend UI: `http://localhost`
+- API Gateway: `http://localhost:8080`
+- API Docs: `http://localhost:8080/api-docs`
 
 Kiểm tra nhanh:
 
@@ -148,11 +157,13 @@ Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`
 
 ## 5. URL và endpoint quan trọng
 
-- Frontend UI (Docker gateway): `http://localhost:8080`
+- Frontend UI (Docker Compose): `http://localhost`
 
 - Frontend UI (chạy frontend local tách riêng): `http://127.0.0.1:8000`
 
 - API Gateway: `http://localhost:8080`
+
+- Ghi chú: gateway chỉ phục vụ API và docs, không serve frontend.
 
 - API Docs Portal: `http://localhost:8080/api-docs`
 
@@ -234,6 +245,8 @@ Chỉ dùng cho môi trường dev/test local.
 - Không commit thông tin nhạy cảm vào `.env`.
 
 - Gateway và route map là hợp đồng tích hợp giữa frontend và backend.
+
+- Khi sửa code backend trong Docker, nếu container giữ image cũ, rebuild và force recreate nhóm service backend cùng `api-gateway` để tránh stale routes hoặc stale image.
 
 - Test E2E smoke backend có tại `backend/tests/test_smoke_e2e.py`.
 

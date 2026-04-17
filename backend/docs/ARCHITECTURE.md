@@ -67,7 +67,10 @@ Nginx route map:
 - `/api/v1/admin/*` -> `admin-service`
 - `/api/v1/analytics/*` -> `analytics-service`
 - `/health` -> `destination-service/health`
-- Non-API routes (`/`) -> `frontend:8001`
+- `/api-docs` -> static docs portal served by gateway
+- Non-API routes (`/`) -> gateway status text, không proxy frontend
+
+Frontend UI không đi qua gateway; trong Docker Compose, service `frontend` expose ra host `http://localhost` (port 80) và chạy nội bộ trên `8001`.
 
 ## Event-driven Analytics Flow
 

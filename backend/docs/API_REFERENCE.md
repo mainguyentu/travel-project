@@ -6,6 +6,7 @@ Tài liệu này mô tả các endpoint chính của backend FastAPI theo trạn
 
 - Local monolith: `http://localhost:8000`
 - Gateway (docker-compose): `http://localhost:8080`
+- Frontend UI (docker-compose): `http://localhost`
 - API prefix: `/api/v1`
 
 ## Định Dạng Phản Hồi
@@ -411,5 +412,6 @@ Service-scoped Redoc:
 
 Lưu ý quan trọng:
 
-- Trong docker-compose đầy đủ (gateway + frontend), route non-API (`/`) được gateway map về trang thông báo gateway đã hoạt động.
+- Trong docker-compose đầy đủ, frontend UI chạy ở `http://localhost` và gateway chỉ phục vụ API/docs.
+- Route non-API (`/`) được gateway map về trang thông báo gateway đã hoạt động.
 - Vì vậy `http://localhost:8080/docs` và `http://localhost:8080/openapi.json` không phải điểm truy cập docs mặc định.

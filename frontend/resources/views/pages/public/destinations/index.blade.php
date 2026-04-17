@@ -18,12 +18,9 @@
             @endif
 
             <div class="destinations-layout">
-                <aside class="filter-panel panel">
-                    <h2 class="filter-panel-title">Bộ lọc</h2>
-                    @include('components.filter-panel')
-                </aside>
+                @include('components.filter-panel')
 
-                <div>
+                <div class="destinations-results">
                     <p class="muted list-result-count">
                         Tìm thấy {{ (int) ($pagination['total'] ?? count($destinations)) }} kết quả.
                     </p>
@@ -39,38 +36,55 @@
                     </div>
 
                     @php
-                        $currentPage = (int) ($pagination['current_page'] ?? 1);
-                        $lastPage = (int) ($pagination['last_page'] ?? 1);
-                        $baseQuery = request()->except('page');
+                        $currentPage = max((int) ($pagination['current_page'] ?? 1), 1);
+                        $lastPage = max((int) ($pagination['last_page'] ?? 1), 1);
+                        $pageNodes = collect([1, 2, $currentPage - 1, $currentPage, $currentPage + 1, $lastPage - 1, $lastPage])
+                                    ->filter(fn($page) => $page >= 1 && $page <= $lastPage)
+                                    ->unique()
+                                    ->sort()
+                                    ->values();
+                        // $baseQuery = request()->except('page');
                     @endphp
 
                     @if ($lastPage > 1)
-                        <nav class="pagination" aria-label="Pagination">
-                            @if ($currentPage > 1)
-                                <a
-                                    href="{{ route('destinations.index', array_merge($baseQuery, ['page' => $currentPage - 1])) }}">←
-                                    Trước</a>
-                            @else
-                                <span>← Trước</span>
-                            @endif
-
-                            @for ($page = 1; $page <= $lastPage; $page++)
-                                @if ($page === $currentPage)
-                                    <span class="active">{{ $page }}</span>
+                        <div class="pagination-wrapper" aria-label="Destination pagination">
+                            <nav class="pagination">
+                                @if ($currentPage > 1)
+                                    <a href="{{ route('destinations.index', array_merge(request()->except('page'), ['page' => $currentPage - 1])) }}"
+                                        class="page-link">Prev</a>
                                 @else
-                                    <a
-                                        href="{{ route('destinations.index', array_merge($baseQuery, ['page' => $page])) }}">{{ $page }}</a>
+                                    <span class="page-link disabled">Prev</span>
                                 @endif
-                            @endfor
 
-                            @if ($currentPage < $lastPage)
-                                <a
-                                    href="{{ route('destinations.index', array_merge($baseQuery, ['page' => $currentPage + 1])) }}">Tiếp
-                                    →</a>
-                            @else
-                                <span>Tiếp →</span>
-                            @endif
-                        </nav>
+                                @php
+                                    $previousPrinted = null;
+                                @endphp
+                                @foreach ($pageNodes as $pageNode)
+                                    @if ($previousPrinted !== null && $pageNode - $previousPrinted > 1)
+                                        <span class="page-link dots">...</span>
+                                    @endif
+
+                                    @if ($pageNode === $currentPage)
+                                        <span class="page-link active">{{ $pageNode }}</span>
+                                    @else
+                                        <a href="{{ route('destinations.index', array_merge(request()->except('page'), ['page' => $pageNode])) }}"
+                                            class="page-link">{{ $pageNode }}</a>
+                                    @endif
+
+                                    @php
+                                        $previousPrinted = $pageNode;
+                                    @endphp
+                                @endforeach
+
+                                @if ($currentPage < $lastPage)
+                                    <a href="{{ route('destinations.index', array_merge(request()->except('page'), ['page' => $currentPage + 1])) }}"
+                                        class="page-link">Next</a>
+                                @else
+                                    <span class="page-link disabled">Next</span>
+                                @endif
+
+                            </nav>
+                        </div>
                     @endif
                 </div>
             </div>

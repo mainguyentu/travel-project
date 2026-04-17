@@ -2,12 +2,17 @@
 from sqlalchemy import select
 import re
 import unicodedata
+import logging
 from app.core.errors import AppError
 from app.db.models import Category
 from app.repositories.destinations import DestinationRepository
 from app.repositories.categories import CategoryRepository
 from app.core.cache import invalidate_destination_cache, invalidate_admin_stats_cache, invalidate_public_landing_cache
 from app.services.insight import InsightService
+from app.services.destination_images import get_destination_image_migrator
+
+
+logger = logging.getLogger(__name__)
 
 
 class DestinationService:
@@ -15,6 +20,39 @@ class DestinationService:
         self.db = db
         self.destinations = DestinationRepository(db)
         self.categories = CategoryRepository(db)
+        self.image_migrator = get_destination_image_migrator()
+
+    def _migrate_images_in_payload(self, data: dict, *, destination_id: int | None = None) -> dict:
+        if "img_urls" not in data and "img_url" not in data:
+            return data
+
+        img_urls_value = data.get("img_urls")
+        img_url_value = data.get("img_url")
+
+        urls: list[str] = []
+        if isinstance(img_urls_value, list):
+            urls.extend(str(item).strip() for item in img_urls_value if str(item).strip())
+        if isinstance(img_url_value, str) and img_url_value.strip() and img_url_value.strip() not in urls:
+            urls.insert(0, img_url_value.strip())
+
+        if not urls:
+            data["img_urls"] = None
+            data["img_url"] = None
+            return data
+
+        migrated_urls, stats = self.image_migrator.migrate_urls(urls, destination_id=destination_id)
+        data["img_urls"] = migrated_urls or None
+        data["img_url"] = migrated_urls[0] if migrated_urls else None
+
+        logger.info(
+            "destination_image_migrate_summary destination_id=%s processed=%s migrated=%s skipped=%s fallback=%s",
+            destination_id,
+            stats.processed,
+            stats.migrated,
+            stats.skipped,
+            stats.fallback,
+        )
+        return data
 
     def _validate_categories(self, category_ids: list[int]):
         if not category_ids:
@@ -215,6 +253,7 @@ class DestinationService:
     def create(self, data: dict, category_ids: list[int]):
         self._validate_categories(category_ids)
         normalized_data = self._normalize_destination_data(data)
+        normalized_data = self._migrate_images_in_payload(normalized_data)
         self._ensure_destination_slug(normalized_data)
         destination = self.destinations.create(normalized_data)
         if category_ids:
@@ -238,6 +277,7 @@ class DestinationService:
             reviews = data.pop("reviews", [])
             resolved_category_ids = self._resolve_category_ids(category_ids, category_names)
             normalized_data = self._normalize_destination_data(data)
+            normalized_data = self._migrate_images_in_payload(normalized_data)
             self._ensure_destination_slug(normalized_data, reserved_slugs)
             destination = self.destinations.create(normalized_data)
             if resolved_category_ids:
@@ -257,6 +297,7 @@ class DestinationService:
         if not destination:
             raise AppError("NOT_FOUND", "Destination not found", status_code=404)
         normalized_data = self._normalize_destination_data(data)
+        normalized_data = self._migrate_images_in_payload(normalized_data, destination_id=int(destination.id))
         destination = self.destinations.update(destination, normalized_data)
         if category_ids is not None:
             self._validate_categories(category_ids)

@@ -1,6 +1,7 @@
 # Frontend - Travel Project
 
 Frontend được xây dựng bằng Laravel (Blade + SSR) và tích hợp với backend thông qua API gateway.
+Trong Docker Compose đầy đủ, UI chạy ở service `frontend` riêng trên `http://localhost`, còn `api-gateway` chỉ phục vụ API và docs.
 Trang destinations sử dụng popup chi tiết do JavaScript render, thay vì một route chi tiết riêng.
 
 Frontend là lớp giao diện chính của Travel Project, phục vụ cả public flow lẫn admin flow thông qua backend API `/api/v1/*`.
@@ -153,7 +154,7 @@ npm run dev
 
 Mặc định UI: `http://127.0.0.1:8000`
 
-Khi chạy full Docker stack, UI đi qua gateway tại `http://localhost:8080`.
+Khi chạy full Docker stack, UI đi qua service frontend tại `http://localhost` (host port 80).
 
 ### 5.3 Kiểm Tra Kết Nối API Nhanh
 
@@ -200,6 +201,8 @@ Khuyến nghị chạy bằng Docker Compose từ root project:
 cd ..
 docker compose up --build
 ```
+
+Sau khi stack lên, mở UI ở `http://localhost` và API docs ở `http://localhost:8080/api-docs`.
 
 Nếu muốn chạy frontend riêng, hãy chạy backend/gateway từ root project trước:
 

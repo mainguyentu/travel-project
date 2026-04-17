@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     worker_retry_max: int = 3
     worker_retry_backoff_seconds: float = 0.5
 
+    destination_image_cloudinary_enabled: bool = False
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
+    cloudinary_upload_folder: str = "travel/destinations"
+    destination_image_timeout_seconds: float = 8.0
+    destination_image_max_bytes: int = 8_000_000
+    destination_image_upload_concurrency: int = 3
+    destination_image_backfill_batch_size: int = 50
+    destination_image_backfill_sleep_seconds: float = 0.0
+    destination_image_backfill_checkpoint_file: str = "./.runtime/destination_image_backfill_checkpoint.json"
+
     @field_validator("jwt_secret")
     @classmethod
     def validate_jwt_secret(cls, value: str) -> str:
@@ -107,6 +119,27 @@ class Settings(BaseSettings):
     def validate_retry_backoff(cls, value: float) -> float:
         if value < 0:
             raise ValueError("worker_retry_backoff_seconds must be >= 0")
+        return value
+
+    @field_validator("destination_image_timeout_seconds")
+    @classmethod
+    def validate_destination_image_timeout(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("destination_image_timeout_seconds must be > 0")
+        return value
+
+    @field_validator("destination_image_max_bytes", "destination_image_upload_concurrency", "destination_image_backfill_batch_size")
+    @classmethod
+    def validate_destination_image_positive_int(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("destination image settings must be > 0")
+        return value
+
+    @field_validator("destination_image_backfill_sleep_seconds")
+    @classmethod
+    def validate_destination_image_sleep(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError("destination_image_backfill_sleep_seconds must be >= 0")
         return value
 
 

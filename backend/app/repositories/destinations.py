@@ -85,17 +85,23 @@ class DestinationRepository:
             stmt = stmt.where(or_(Destination.name.ilike(like), Destination.description.ilike(like)))
         return self.db.execute(stmt).scalar_one()
 
-    def list_admin(self, status: str | None, offset: int, limit: int):
+    def list_admin(self, status: str | None, keyword: str | None, offset: int, limit: int):
         stmt = select(Destination)
         if status:
             stmt = stmt.where(Destination.status == status)
+        if keyword:
+            like = f"%{keyword}%"
+            stmt = stmt.where(Destination.name.ilike(like))
         stmt = stmt.order_by(Destination.created_at.desc()).offset(offset).limit(limit)
         return self.db.execute(stmt).scalars().all()
 
-    def count_admin(self, status: str | None):
+    def count_admin(self, status: str | None, keyword: str | None):
         stmt = select(func.count(Destination.id))
         if status:
             stmt = stmt.where(Destination.status == status)
+        if keyword:
+            like = f"%{keyword}%"
+            stmt = stmt.where(Destination.name.ilike(like))
         return self.db.execute(stmt).scalar_one()
 
     def search(self, q: str, category_slug: str | None, price_level: str | None, offset: int, limit: int):

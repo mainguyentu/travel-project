@@ -81,16 +81,38 @@ class AdminController extends Controller
      */
     public function destinations()
     {
-        $response = $this->apiClient->get('admin/destinations', ['page' => 1, 'limit' => 50]);
+        $page = max((int) request('page', 1), 1);
+        $limit = 20;
+        $keyword = trim((string) request('keyword', ''));
+
+        $params = ['page' => $page, 'limit' => $limit];
+        if ($keyword !== '') {
+            $params['keyword'] = $keyword;
+        }
+
+        $response = $this->apiClient->get('admin/destinations', $params);
         $categoriesResponse = $this->apiClient->get('admin/categories');
         $requestFailed = ($response['success'] ?? true) === false;
         $categoriesFailed = ($categoriesResponse['success'] ?? true) === false;
+
+        $meta = $response['meta'] ?? [];
+        $pageValue = max((int) ($meta['page'] ?? $page), 1);
+        $limitValue = max((int) ($meta['limit'] ?? $limit), 1);
+        $total = max((int) ($meta['total'] ?? 0), 0);
+        $lastPage = max((int) ceil($total / $limitValue), 1);
 
         return view('pages.admin.destinations.index', [
             'destinations' => $response['data'] ?? [],
             'destinationsError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách điểm đến.') : null,
             'categories' => $categoriesResponse['data'] ?? [],
             'categoriesError' => $categoriesFailed ? ($categoriesResponse['error'] ?? 'Khong the tai danh muc.') : null,
+            'pagination' => [
+                'current_page' => $pageValue,
+                'last_page' => $lastPage,
+                'limit' => $limitValue,
+                'total' => $total,
+            ],
+            'keyword' => $keyword,
         ]);
     }
 

@@ -17,7 +17,7 @@
 
                 <div class="dashboard-quick-links">
                     <a href="#category-table" class="dashboard-quick-link">Xem danh sách</a>
-                    <a href="#category-create-form" class="dashboard-quick-link">Tạo danh mục</a>
+                    <a href="#category-create-section" class="dashboard-quick-link" data-open-target="#category-create-form">Tạo danh mục</a>
                 </div>
             </div>
 
@@ -62,7 +62,7 @@
                             <td class="table-actions-cell">
                                 <details class="admin-inline-details">
                                     <summary class="btn-small">Chỉnh sửa</summary>
-                                    <form method="POST" action="{{ route('admin.categories.update', $category['id']) }}" class="admin-form">
+                                    <form method="POST" action="{{ route('admin.categories.update', $category['id']) }}" class="admin-form admin-edit-form admin-edit-grid">
                                         @csrf
                                         @method('PUT')
                                         <div class="form-group">
@@ -76,11 +76,13 @@
                                             <input id="category_slug_{{ $category['id'] }}" name="slug" type="text"
                                                 class="form-control" value="{{ $category['slug'] }}">
                                         </div>
-                                        <div class="form-group">
+                                        <div class="form-group form-group-full">
                                             <label>Mô tả</label>
                                             <textarea name="descriptions" class="form-control" rows="2">{{ $category['descriptions'] ?? '' }}</textarea>
                                         </div>
-                                        <button type="submit" class="btn-small">Lưu</button>
+                                        <div class="admin-edit-actions">
+                                            <button type="submit" class="btn-small">Lưu</button>
+                                        </div>
                                     </form>
                                 </details>
                                 <form method="POST" action="{{ route('admin.categories.delete', $category['id']) }}" class="d-inline">
@@ -100,8 +102,8 @@
             </table>
         </div>
 
-        <div class="admin-form-wrapper">
-            <button type="button" class="btn-secondary admin-form-toggle" data-toggle-target="#category-create-form">Mở form tạo danh mục</button>
+        <div class="admin-form-wrapper" id="category-create-section">
+            <button type="button" class="btn-secondary admin-form-toggle" data-toggle-target="#category-create-form" data-label-open="Mở form tạo danh mục" data-label-close="Đóng form tạo danh mục">Mở form tạo danh mục</button>
             <div id="category-create-form" class="admin-form-panel" hidden>
                 <form method="POST" action="{{ route('admin.categories.store') }}" class="admin-form admin-form-grid">
                     @csrf
