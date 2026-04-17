@@ -41,7 +41,10 @@ class InteractionService:
             new_comment=comment,
             old_score=old_score,
             old_comment=old_comment,
+            new_review_time=getattr(rating, "updated_at", None),
+            old_review_time=getattr(old_rating, "updated_at", None) if old_rating else None,
             is_new_rating=old_rating is None,
+            reviewer_user_id=user_id,
         )
         self.destinations.recompute_rating_avg(destination_id)
         invalidate_destination_cache(destination_id)

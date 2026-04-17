@@ -2,6 +2,18 @@ import "./bootstrap";
 import "./destination-modal";
 
 document.addEventListener("DOMContentLoaded", () => {
+    const setToggleLabel = (button, isOpen) => {
+        if (!button) {
+            return;
+        }
+
+        const openLabel =
+            button.getAttribute("data-label-open") || "Mở form";
+        const closeLabel =
+            button.getAttribute("data-label-close") || "Đóng form";
+        button.textContent = isOpen ? closeLabel : openLabel;
+    };
+
     const slugify = (value) => {
         if (!value) {
             return "";
@@ -60,15 +72,54 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        setToggleLabel(button, !target.hasAttribute("hidden"));
+
         button.addEventListener("click", () => {
-            const isHidden = target.hasAttribute("hidden");
-            if (isHidden) {
+            const shouldOpen = target.hasAttribute("hidden");
+            if (shouldOpen) {
                 target.removeAttribute("hidden");
-                button.textContent = button.textContent.replace("Mo", "Dong");
             } else {
                 target.setAttribute("hidden", "");
-                button.textContent = button.textContent.replace("Dong", "Mo");
             }
+
+            setToggleLabel(button, shouldOpen);
+        });
+    });
+
+    const quickOpenLinks = document.querySelectorAll("[data-open-target]");
+    quickOpenLinks.forEach((link) => {
+        const openTargetSelector = link.getAttribute("data-open-target");
+        if (!openTargetSelector) {
+            return;
+        }
+
+        const openTarget = document.querySelector(openTargetSelector);
+        if (!openTarget) {
+            return;
+        }
+
+        const toggleButton = document.querySelector(
+            `[data-toggle-target=\"${openTargetSelector}\"]`,
+        );
+
+        link.addEventListener("click", (event) => {
+            if (openTarget.hasAttribute("hidden")) {
+                openTarget.removeAttribute("hidden");
+                setToggleLabel(toggleButton, true);
+            }
+
+            const href = link.getAttribute("href");
+            if (!href || !href.startsWith("#")) {
+                return;
+            }
+
+            const scrollTarget = document.querySelector(href);
+            if (!scrollTarget) {
+                return;
+            }
+
+            event.preventDefault();
+            scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
         });
     });
 

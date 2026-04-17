@@ -51,12 +51,23 @@ function initDestinationModal() {
 
     const renderLoading = () => {
         modalTitle.textContent = 'Đang tải chi tiết...';
-        modalContent.innerHTML = '<p class="muted">Vui lòng chờ trong giây lát...</p>';
+        modalContent.innerHTML = `
+            <div class="destination-modal-loading" role="status" aria-live="polite">
+                <span class="destination-modal-spinner" aria-hidden="true"></span>
+                <p class="muted">Đang tải thông tin điểm đến. Vui lòng chờ trong giây lát...</p>
+            </div>
+        `;
     };
 
     const renderError = (message) => {
         modalTitle.textContent = 'Không thể tải chi tiết';
-        modalContent.innerHTML = `<p class="muted">${message}</p>`;
+        modalContent.innerHTML = `
+            <section class="detail-panel destination-modal-error" role="alert">
+                <h3>Đã xảy ra lỗi</h3>
+                <p class="muted">${toSafeText(message, 'Không tải được dữ liệu điểm đến.')}</p>
+                <p class="muted">Vui lòng đóng popup và thử lại sau vài giây.</p>
+            </section>
+        `;
     };
 
     const toSafeText = (value, fallback = 'N/A') => {
@@ -79,6 +90,62 @@ function initDestinationModal() {
         return priceLabels[key] || String(priceLevel);
     };
 
+    const getPrimaryImage = (destination) => {
+        if (destination?.img_url) {
+            return destination.img_url;
+        }
+        if (Array.isArray(destination?.img_urls) && destination.img_urls.length > 0) {
+            return destination.img_urls[0];
+        }
+        return '';
+    };
+
+    const getOpenHours = (destination) => {
+        return destination?.open_hours?.raw_text || destination?.open_hour || 'Đang cập nhật';
+    };
+
+    // Hàm tính toán địa chỉ có đang mở cửa hay không dựa trên open_hours.raw_text và trả về 'Đang mở cửa' hoặc 'Đang đóng cửa' hoặc trả về 'Đang cập nhật' nếu không có thông tin
+    const isOpen = (destination) => {
+        const openHours = destination?.open_hours?.raw_text || destination?.open_hour || null;
+        if (!openHours) {
+            return null; // Không có thông tin
+        }
+        const now = new Date();
+        const [openTime, closeTime] = openHours.split(' đến ').map(timeStr => {
+            const [hour, minute] = timeStr.split(':').map(Number);
+            return { hour, minute };
+        });
+        if (openTime && closeTime) {
+            const openDate = new Date(now);
+            openDate.setHours(openTime.hour, openTime.minute, 0, 0);
+            const closeDate = new Date(now);
+            closeDate.setHours(closeTime.hour, closeTime.minute, 0, 0);
+            if (openDate <= now && now <= closeDate) {
+                return true; // Đang mở cửa
+            } else {
+                return false; // Đang đóng cửa
+            }
+        }
+        return null; // Không có thông tin chính xác về giờ mở cửa 
+    };
+
+
+    const getPriceText = (destination) => {
+        const level = destination?.price?.level ?? destination?.price_level;
+        const priceLevel = (level !== null && level !== undefined && String(level).trim() !== '')
+            ? normalizePrice(level)
+            : 'N/A';
+        const priceRawText = destination?.price?.raw_text ?? destination?.price_raw_text;
+        const price = (priceRawText !== null && priceRawText !== undefined && String(priceRawText).trim() !== '')
+            ? String(priceRawText)
+            : 'N/A';
+
+        return {
+            price_level: priceLevel,
+            price,
+        };
+    };
+
     const toSafeList = (items) => {
         if (!Array.isArray(items) || items.length === 0) {
             return '';
@@ -99,22 +166,29 @@ function initDestinationModal() {
         const description = toSafeText(destination.description, 'Chưa có mô tả cho địa điểm này.');
         const rating = Number(destination.rating_avg || 0).toFixed(1);
         const metrics = destination.metrics || null;
-        const reviewCount = Number(metrics?.rating_count ?? destination.review_count ?? 0);
-        const openHours = toSafeText(description.open_hour, 'Đang cập nhật');
+        const openHours = toSafeText(getOpenHours(destination), 'Đang cập nhật');
+        const open_hour_close = toSafeText(destination.open_hour_close, '');
+        const openStatus = isOpen(destination);
+        const openStatusText = openStatus === true ? 'Đang mở cửa' : (openStatus === false ? 'Đang đóng cửa' : 'Đang cập nhật');
+        const openStatusClass = openStatus === true ? 'is-open' : (openStatus === false ? 'is-closed' : 'is-unknown');
         const favoriteCount = Number(metrics?.favorite_count ?? 0);
         const totalViews = Number(metrics?.view_count ?? destination.view_count ?? 0);
         const insight = destination.insight || null;
         const insightData = insight?.final_data || null;
-        const insightScore = insightData?.score ?? insight?.score_snapshot?.overall ?? null;
         const insightSummary = toSafeText(
             insightData?.summary,
-            'Hiện chưa có insight tổng quan cho địa điểm này.'
+            'Hiện chưa có nhận định tổng quan cho địa điểm này.'
         );
         const highlightsList = toSafeList(insightData?.highlights);
         const risksList = toSafeList(insightData?.risks);
         const recommendation = toSafeText(insightData?.recommendation, '');
-        const price = toSafeText(normalizePrice(destination.price_level));
-        const image = destination.img_url ? toSafeText(destination.img_url, '') : '';
+        const {
+            price_level: priceLevel,
+            price: priceRaw,
+        } = getPriceText(destination);
+        const price_level_text = priceLevel !== 'N/A' ? toSafeText(priceLevel) : '';
+        const price_raw_text = priceRaw !== 'N/A' ? toSafeText(priceRaw) : '';
+        const image = toSafeText(getPrimaryImage(destination), '');
         const mapUrl = destination.url_map ? toSafeText(destination.url_map, '') : '';
         const safeLoginUrl = loginUrl ? toSafeText(loginUrl, '') : '';
         const ratingAction = ratingModalRoot && ratingForm && ratingEndpoint
@@ -128,25 +202,27 @@ function initDestinationModal() {
         modalContent.innerHTML = `
             <section class="destination-modal-hero">
                 ${image ? `<img src="${image}" alt="${name}">` : '<div class="destination-modal-image-placeholder">No image</div>'}
-                <div class="destination-modal-hero-overlay">
-                    <span class="badge badge-soft">${categoryBadge}</span>
-                    <h3 class="text-2xl">${name}</h3>
-                    <p>Đánh giá ${rating}/5 · ${price} . ${openHours} </p>
+                <div class="destination-modal-hero-overlay" aria-hidden="true"></div>
+                <div class="destination-modal-hero-content">
+                    <span class="destination-pill">${categoryBadge}</span>
+                    <h3>${name}</h3>
+                    <p class="destination-modal-hero-address">${address}</p>
+                    <div class="destination-modal-status-row">
+                        <span class="destination-modal-status ${openStatusClass}">${openStatusText}</span>
+                        <span class="destination-modal-hours">${openHours}${open_hour_close ? ` · ${open_hour_close}` : ''}</span>
+                    </div>
                 </div>
             </section>
 
-            <section class="destination-modal-meta-grid meta-grid">
-                <article class="public-card destination-modal-meta-card">
-                    <strong>Danh mục</strong>
-                    <p class="muted">${category}</p>
-                </article>
-                <article class="public-card destination-modal-meta-card">
-                    <strong>Địa chỉ</strong>
-                    <p class="muted">${address}</p>
-                </article>
+            <section class="destination-modal-meta-grid" aria-label="Thông tin nhanh">
                 <article class="public-card destination-modal-meta-card">
                     <strong>Mức giá</strong>
-                    <p class="muted">${price}</p>
+                    <p class="muted">${price_level_text}</p>
+                    <p class="muted">${price_raw_text}</p>
+                </article>
+                <article class="public-card destination-modal-meta-card">
+                    <strong>Đánh giá</strong>
+                    <p class="muted">${rating}⭐</p>
                 </article>
                 <article class="public-card destination-modal-meta-card">
                     <strong>Lượt yêu thích</strong>
@@ -157,40 +233,45 @@ function initDestinationModal() {
                     <p class="muted">${totalViews}</p>
                 </article>
             </section>
-            <section class="detail-panel destination-modal-section">
-                <h3>Thông tin tổng quan</h3>
-                <p class="muted">${description}</p>
-            </section>
 
-            <section class="detail-panel destination-modal-section">
-                <h3>Insight điểm đến ${insightScore !== null ? `<span class="muted">(Score: ${toSafeText(insightScore, '')})</span>` : ''}</h3>
-                <p class="muted">${insightSummary}</p>
-                ${highlightsList ? `
+            <div class="destination-modal-body-grid">
+                <section class="detail-panel destination-modal-section">
+                    <h3>Thông tin tổng quan</h3>
+                    <p class="muted">${description}</p>
+                </section>
+
+                <section class="detail-panel destination-modal-section">
+                    <h3>Nhận định</h3>
                     <div class="destination-modal-insight-block">
-                        <strong>Điểm nổi bật</strong>
-                        <ul class="muted">${highlightsList}</ul>
-                    </div>
-                ` : ''}
-                ${risksList ? `
-                    <div class="destination-modal-insight-block">
-                        <strong>Lưu ý</strong>
-                        <ul class="muted">${risksList}</ul>
-                    </div>
-                ` : ''}
-                ${recommendation ? `
-                    <div class="destination-modal-insight-block">
-                        <strong>Khuyến nghị</strong>
+                        <strong>Đánh giá tổng hợp</strong>
+                        <p class="muted">${insightSummary}</p>
                         <p class="muted">${recommendation}</p>
                     </div>
-                ` : ''}
-            </section>
+                    <div class="destination-modal-insight-block">
+                        <div class="destination-modal-insight-split">
+                            <div class="destination-modal-insight-col">
+                                <strong>Điểm nổi bật</strong>
+                                ${highlightsList
+                                    ? `<ul class="muted">${highlightsList}</ul>`
+                                    : '<p class="muted">Hiện chưa có điểm nổi bật.</p>'}
+                            </div>
+                            <div class="destination-modal-insight-col">
+                                <strong>Điểm cần lưu ý</strong>
+                                ${risksList
+                                    ? `<ul class="muted">${risksList}</ul>`
+                                    : '<p class="muted">Hiện chưa có điểm cần lưu ý.</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
 
             ${(mapUrl || ratingAction) ? `
                 <div class="destination-modal-actions">
                     ${ratingAction}
                     ${mapUrl ? `
                         <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="btn-primary">
-                            🗺️ Xem bản đồ
+                            Xem bản đồ
                         </a>
                     ` : ''}
                 </div>

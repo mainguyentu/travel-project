@@ -452,7 +452,7 @@ def test_admin_destination_bulk_create():
         insight = db.query(DestinationInsight).filter(DestinationInsight.destination_id == created_a.id).first()
         assert insight is not None
         assert insight.final_data is not None
-        assert insight.final_data.get("status") in ("low_confidence", "reliable", "insufficient_data")
+        assert insight.final_data.get("status") in ("low_confidence", "reliable", "insufficient_data", "high_variance")
         assert isinstance((insight.insight_cache or {}).get("total_reviews", 0), int)
     finally:
         db.close()

@@ -39,10 +39,10 @@ def test_insight_initialize_baseline():
 
         cache = insight.insight_cache
         assert cache["total_reviews"] == 0
-        assert cache["count_scenery"] == 0
-        assert cache["count_accessibility"] == 0
-        assert cache["count_crowd"] == 0
-        assert cache["count_value"] == 0
+        assert cache["sum_weight_scenery"] == 0.0
+        assert cache["sum_weight_accessibility"] == 0.0
+        assert cache["sum_weight_crowd"] == 0.0
+        assert cache["sum_weight_value"] == 0.0
     finally:
         db.close()
 
@@ -68,10 +68,10 @@ def test_insight_apply_rating_updates_cache_and_scores():
         cache = insight.insight_cache
 
         assert cache["total_reviews"] == 1
-        assert cache["count_scenery"] == 1
-        assert cache["count_accessibility"] == 1
-        assert cache["count_crowd"] == 0
-        assert cache["count_value"] == 0
+        assert cache["sum_weight_scenery"] > 0
+        assert cache["sum_weight_accessibility"] > 0
+        assert cache["sum_weight_crowd"] == 0.0
+        assert cache["sum_weight_value"] == 0.0
 
         assert insight.score_snapshot["scenery"] > BASELINE_SCORE
         assert insight.score_snapshot["accessibility"] > BASELINE_SCORE
@@ -92,10 +92,10 @@ def test_insight_apply_rating_updates_cache_and_scores():
         cache = insight.insight_cache
 
         assert cache["total_reviews"] == 1
-        assert cache["count_scenery"] == 0
-        assert cache["count_accessibility"] == 0
-        assert cache["count_crowd"] == 1
-        assert cache["count_value"] == 1
+        assert cache["sum_weight_scenery"] == 0.0
+        assert cache["sum_weight_accessibility"] == 0.0
+        assert cache["sum_weight_crowd"] > 0
+        assert cache["sum_weight_value"] > 0
 
         assert insight.score_snapshot["scenery"] == BASELINE_SCORE
         assert insight.score_snapshot["accessibility"] == BASELINE_SCORE
@@ -122,7 +122,7 @@ def test_insight_short_review_reduced_weight():
         db.commit()
 
         insight = db.get(DestinationInsight, destination.id)
-        assert insight.insight_cache["count_scenery"] == 1
+        assert insight.insight_cache["sum_weight_scenery"] > 0
         assert insight.score_snapshot["scenery"] == 30.0
         assert insight.insight_cache["total_reviews"] == 1
     finally:
@@ -146,7 +146,7 @@ def test_insight_reject_ad_spam():
         db.commit()
 
         insight = db.get(DestinationInsight, destination.id)
-        assert insight.insight_cache["count_scenery"] == 0
-        assert insight.insight_cache["total_reviews"] == 0
+        assert insight.insight_cache["sum_weight_scenery"] == 0.0
+        assert insight.insight_cache["total_reviews"] == 1
     finally:
         db.close()
