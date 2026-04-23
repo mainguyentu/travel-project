@@ -109,7 +109,7 @@ class PublicFlowTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('Tính năng gợi ý hoạt động đang ở chế độ rollout.');
+        $response->assertSee('Tính năng gợi ý hoạt động đang được triển khai.');
         $response->assertSee('Endpoint: ON');
         $response->assertSee('Home integration: OFF');
     }
