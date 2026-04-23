@@ -75,7 +75,7 @@
         </div>
     </section>
 
-    {{-- <section class="section-pad" id="activities">
+    <section class="section-pad" id="activities">
         <div class="site-container">
             <div class="section-heading">
                 <h2>Hoạt động <span class="text-gradient">du lịch</span></h2>
@@ -156,7 +156,7 @@
             </div>
             @endif
         </div>
-    </section> --}}
+    </section>
 
     <section class="section-pad section-soft-cyan" id="cuisine">
         <div class="site-container">
