@@ -5,13 +5,7 @@
     }
 
     $categoryNames = collect($destination['categories'] ?? [])->pluck('name')->filter()->values();
-    $priceLevel = $destination['price']['level'] ?? ($destination['price_level'] ?? null);
-    $priceLabelMap = [
-        'low' => '$ - Tiết kiệm',
-        'medium' => '$$ - Vừa phải',
-        'high' => '$$$ - Cao cấp',
-    ];
-    $priceLabel = $priceLabelMap[$priceLevel] ?? 'N/A';
+    $priceText = $destination['price']['raw_text'] ?? ($destination['price_raw_text'] ?? null);
     $openHours = $destination['open_hours']['raw_text'] ?? ($destination['open_hour'] ?? 'N/A');
     $primaryCategory = $categoryNames->first() ?? 'Điểm đến';
 @endphp
@@ -44,7 +38,9 @@
         </h3>
 
         <div class="destination-card-meta">
-            <span class="meta-pill meta-pill-price">{{ $priceLabel }}</span>
+            @if ($priceText)
+                <span class="meta-pill meta-pill-price">{{ $priceText }}</span>
+            @endif
             <span class="meta-pill">⏱ {{ Str::limit($openHours, 24) }}</span>
         </div>
 

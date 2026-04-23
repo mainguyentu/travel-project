@@ -113,6 +113,53 @@ Body:
 
 Trả về: `highlights`, `categories`, `top_ratings`, `top_favorites`.
 
+### Activity Recommendations
+
+- `GET /api/v1/public/activities/{activity_slug}/recommendations`
+
+Query params:
+
+- `page` (mặc định `1`, min `1`)
+- `limit` (mặc định `10`, min `1`, max `100`)
+- `budget_level` (tuỳ chọn)
+
+Response `data`:
+
+- `activity`: thông tin activity hiện tại hoặc `null` khi fallback lỗi nội bộ
+- `highlight_destinations`: top highlight (thường top 1)
+- `recommended_destinations`: danh sách phân trang
+- `trending`: danh sách trending độc lập
+- `error_info`: `null` khi tính toán thành công; có giá trị khi fallback
+
+Mẫu fallback:
+
+```json
+{
+  "success": true,
+  "data": {
+    "activity": null,
+    "highlight_destinations": [],
+    "recommended_destinations": [],
+    "trending": [],
+    "error_info": {
+      "endpoint_error_code": "ACTIVITY_RECOMMENDATION_ENDPOINT_ERROR",
+      "endpoint_error_message": "Failed to compute recommendations"
+    }
+  },
+  "meta": {
+    "request_id": "...",
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+Feature flag rollout:
+
+- Backend endpoint toggle: `ACTIVITY_RECOMMENDATION_ENDPOINT_ENABLED`.
+- Frontend endpoint toggle: `FEATURE_ACTIVITY_RECOMMENDATION_ENDPOINT_ENABLED`.
+- Frontend home integration toggle: `FEATURE_ACTIVITY_RECOMMENDATION_HOME_ENABLED`.
+
 ## Destinations
 
 ### Danh Sách Destinations

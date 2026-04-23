@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\ApiClient;
+use Illuminate\Support\Facades\Config;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -21,6 +22,20 @@ class PublicFlowTest extends TestCase
                         'categories' => [['id' => 10, 'name' => 'Beach', 'slug' => 'beach']],
                     ],
                 ]);
+
+            $mock->shouldReceive('get')
+                ->once()
+                ->with('public/activities/city-tour/recommendations', ['page' => 1, 'limit' => 3])
+                ->andReturn([
+                    'success' => true,
+                    'data' => [
+                        'activity' => ['id' => 1, 'slug' => 'city-tour', 'name' => 'City tour', 'description' => 'Khám phá các điểm nổi bật khu trung tâm và đô thị.'],
+                        'highlight_destinations' => [['id' => 11, 'name' => 'Dragon Bridge', 'rating_avg' => 4.8]],
+                        'recommended_destinations' => [['id' => 12, 'name' => 'Han River', 'rating_avg' => 4.6]],
+                        'trending' => [['id' => 13, 'name' => 'Sun Wheel', 'rating_avg' => 4.5]],
+                        'error_info' => null,
+                    ],
+                ]);
         });
 
         $response = $this->get('/');
@@ -29,6 +44,74 @@ class PublicFlowTest extends TestCase
         $response->assertViewIs('pages.public.home');
         $response->assertViewHas('featured', fn (array $featured) => count($featured) === 1);
         $response->assertViewHas('categories', fn (array $categories) => count($categories) === 1);
+        $response->assertViewHas('selectedActivitySlug', fn (string $slug) => $slug === 'city-tour');
+        $response->assertSee('Dragon Bridge');
+        $response->assertSee('Han River');
+        $response->assertSee('Sun Wheel');
+    }
+
+    public function test_home_page_shows_activity_api_error_banner_when_recommendations_fail(): void
+    {
+        $this->mock(ApiClient::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('get')
+                ->once()
+                ->with('public/landing')
+                ->andReturn([
+                    'success' => true,
+                    'data' => [
+                        'highlights' => [],
+                        'categories' => [],
+                    ],
+                ]);
+
+            $mock->shouldReceive('get')
+                ->once()
+                ->with('public/activities/city-tour/recommendations', ['page' => 1, 'limit' => 3])
+                ->andReturn([
+                    'success' => true,
+                    'data' => [
+                        'activity' => ['id' => 1, 'slug' => 'city-tour', 'name' => 'City tour'],
+                        'highlight_destinations' => [],
+                        'recommended_destinations' => [],
+                        'trending' => [],
+                        'error_info' => [
+                            'endpoint_error_code' => 'ACTIVITY_RECOMMENDATION_ENDPOINT_ERROR',
+                            'endpoint_error_message' => 'Failed to compute recommendations',
+                        ],
+                    ],
+                ]);
+        });
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee('Lỗi API Endpoint ACTIVITY_RECOMMENDATION_ENDPOINT_ERROR');
+    }
+
+    public function test_home_page_shows_rollout_info_and_skips_recommendation_api_when_feature_disabled(): void
+    {
+        Config::set('api.flags.activity_recommendation_home_enabled', false);
+        Config::set('api.flags.activity_recommendation_endpoint_enabled', true);
+
+        $this->mock(ApiClient::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('get')
+                ->once()
+                ->with('public/landing')
+                ->andReturn([
+                    'success' => true,
+                    'data' => [
+                        'highlights' => [],
+                        'categories' => [],
+                    ],
+                ]);
+        });
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee('Tính năng gợi ý hoạt động đang ở chế độ rollout.');
+        $response->assertSee('Endpoint: ON');
+        $response->assertSee('Home integration: OFF');
     }
 
     public function test_destinations_index_applies_query_filters_and_pagination_meta(): void

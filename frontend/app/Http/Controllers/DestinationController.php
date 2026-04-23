@@ -54,8 +54,11 @@ class DestinationController extends Controller
         $landing = $this->apiClient->get('public/landing');
         $landingData = $landing['data'] ?? [];
 
+        // Shuffle destinations list before rendering
+        $destinations = collect($response['data'] ?? [])->shuffle()->all();
+
         return view('pages.public.destinations.index', [
-            'destinations' => $response['data'] ?? [],
+            'destinations' => $destinations,
             'pagination' => [
                 'current_page' => $pageValue,
                 'last_page' => max($lastPage, 1),

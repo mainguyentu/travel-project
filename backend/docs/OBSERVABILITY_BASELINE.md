@@ -64,3 +64,31 @@ Threshold cảnh báo khuyến nghị:
    - Giảm traffic qua rate-limit tạm thời
 4. Theo dõi metric hồi phục 15-30 phút.
 5. Ghi nhận RCA + hành động phòng ngừa.
+
+## 6) Activity Recommendation telemetry (Task 11)
+
+Endpoint:
+
+- `GET /api/v1/public/activities/{activity_slug}/recommendations`
+
+Log event JSON:
+
+- `event = activity_recommendation.telemetry`
+- Nhãn chính: `activity_slug`, `request_id`, `page`, `limit`, `budget_level`
+- Signal chính:
+   - `latency_ms`
+   - `fallback_used` (true/false)
+   - `empty_result` (true/false)
+   - `endpoint_error_code`
+   - `counts.highlight`, `counts.recommended`, `counts.trending`
+
+Gợi ý query dashboard (theo log backend):
+
+- Latency p95 theo activity:
+   - lọc `event=activity_recommendation.telemetry`
+   - group by `activity_slug`
+   - tính p95(`latency_ms`)
+- Fallback rate:
+   - tỉ lệ bản ghi `fallback_used=true` trên tổng bản ghi cùng khoảng thời gian
+- Empty-result rate:
+   - tỉ lệ bản ghi `empty_result=true` trên tổng bản ghi cùng khoảng thời gian
