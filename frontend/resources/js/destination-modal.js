@@ -104,29 +104,47 @@ function initDestinationModal() {
         return destination?.open_hours?.raw_text || destination?.open_hour || 'Đang cập nhật';
     };
 
-    // Hàm tính toán địa chỉ có đang mở cửa hay không dựa trên open_hours.raw_text và trả về 'Đang mở cửa' hoặc 'Đang đóng cửa' hoặc trả về 'Đang cập nhật' nếu không có thông tin
+    // Tính trạng thái mở cửa theo phút trong ngày, có xử lý khung giờ qua ngày mới (ví dụ 22:00 đến 00:00 hoặc 22:00 đến 02:00).
     const isOpen = (destination) => {
         const openHours = destination?.open_hours?.raw_text || destination?.open_hour || null;
         if (!openHours) {
-            return null; // Không có thông tin
+            return null;
         }
-        const now = new Date();
-        const [openTime, closeTime] = openHours.split(' đến ').map(timeStr => {
-            const [hour, minute] = timeStr.split(':').map(Number);
-            return { hour, minute };
-        });
-        if (openTime && closeTime) {
-            const openDate = new Date(now);
-            openDate.setHours(openTime.hour, openTime.minute, 0, 0);
-            const closeDate = new Date(now);
-            closeDate.setHours(closeTime.hour, closeTime.minute, 0, 0);
-            if (openDate <= now && now <= closeDate) {
-                return true; // Đang mở cửa
-            } else {
-                return false; // Đang đóng cửa
+
+        const parseTimeToMinutes = (timeStr) => {
+            const match = String(timeStr || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+            if (!match) {
+                return null;
             }
+
+            const hour = Number(match[1]);
+            const minute = Number(match[2]);
+            if (Number.isNaN(hour) || Number.isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+                return null;
+            }
+
+            return hour * 60 + minute;
+        };
+
+        const [openText, closeText] = String(openHours).split(/\s*đến\s*/i);
+        if (!openText || !closeText) {
+            return null;
         }
-        return null; // Không có thông tin chính xác về giờ mở cửa 
+
+        const openMinutes = parseTimeToMinutes(openText);
+        const closeMinutes = parseTimeToMinutes(closeText);
+        if (openMinutes === null || closeMinutes === null) {
+            return null;
+        }
+
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+        if (closeMinutes <= openMinutes) {
+            return nowMinutes >= openMinutes || nowMinutes <= closeMinutes;
+        }
+
+        return nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
     };
 
 
@@ -186,7 +204,6 @@ function initDestinationModal() {
             price_level: priceLevel,
             price: priceRaw,
         } = getPriceText(destination);
-        const price_level_text = priceLevel !== 'N/A' ? toSafeText(priceLevel) : '';
         const price_raw_text = priceRaw !== 'N/A' ? toSafeText(priceRaw) : '';
         const image = toSafeText(getPrimaryImage(destination), '');
         const mapUrl = destination.url_map ? toSafeText(destination.url_map, '') : '';
@@ -217,8 +234,10 @@ function initDestinationModal() {
             <section class="destination-modal-meta-grid" aria-label="Thông tin nhanh">
                 <article class="public-card destination-modal-meta-card">
                     <strong>Mức giá</strong>
-                    <p class="muted">${price_level_text}</p>
-                    <p class="muted">${price_raw_text}</p>
+                    ${price_raw_text
+                        ?`<p class="muted">${price_raw_text}</p>`
+                        :`<p class=""muted>Hiện chưa có thông tin giá</p>`
+                     }
                 </article>
                 <article class="public-card destination-modal-meta-card">
                     <strong>Đánh giá</strong>

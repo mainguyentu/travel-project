@@ -4,8 +4,11 @@ import logging
 import time
 
 from app.core.config import settings
+from app.core.cache import invalidate_destination_cache, invalidate_public_landing_cache
 from app.core.search import delete_destination_document, index_destination_document
 from app.db.session import SessionLocal
+from app.repositories.destinations import DestinationRepository
+from app.services.destination_images import get_destination_image_migrator
 from app.repositories.analytics import AnalyticsRepository
 
 logger = logging.getLogger(__name__)
@@ -100,11 +103,85 @@ def handle_destination_event(event: dict):
         delete_destination_document(int(payload["destination_id"]))
         return
 
+    destinations = payload.get("destinations")
+    if isinstance(destinations, list) and destinations:
+        for destination in destinations:
+            if not isinstance(destination, dict):
+                continue
+            _handle_destination_record(destination)
+        return
+
     destination = payload.get("destination")
     if not isinstance(destination, dict):
         raise EventHandlingError("destination payload missing")
 
+    _handle_destination_record(destination)
+
+
+def _collect_destination_urls(destination: dict) -> list[str]:
+    urls: list[str] = []
+    img_urls_value = destination.get("img_urls")
+    if isinstance(img_urls_value, list):
+        urls.extend(str(item).strip() for item in img_urls_value if str(item).strip())
+
+    img_url_value = destination.get("img_url")
+    if isinstance(img_url_value, str):
+        cleaned = img_url_value.strip()
+        if cleaned and cleaned not in urls:
+            urls.insert(0, cleaned)
+
+    return urls
+
+
+def _migrate_destination_images(destination: dict) -> None:
+    migrator = get_destination_image_migrator()
+    if not migrator.enabled:
+        return
+    if not migrator.configured:
+        logger.warning(
+            "destination_image_migrate_skipped stage=config destination_id=%s reason=missing_credentials",
+            destination.get("id"),
+        )
+        return
+
+    destination_id_raw = destination.get("id")
+    if destination_id_raw is None:
+        return
+
+    urls = _collect_destination_urls(destination)
+    if not urls:
+        return
+
+    migrated_urls, stats = migrator.migrate_urls(urls, destination_id=int(destination_id_raw))
+    logger.info(
+        "destination_image_migrate_worker_summary destination_id=%s processed=%s migrated=%s skipped=%s fallback=%s",
+        destination_id_raw,
+        stats.processed,
+        stats.migrated,
+        stats.skipped,
+        stats.fallback,
+    )
+
+    db = SessionLocal()
+    try:
+        repo = DestinationRepository(db)
+        record = repo.get_by_id(int(destination_id_raw))
+        if record is None:
+            return
+
+        record.img_urls = migrated_urls or None
+        record.img_url = migrated_urls[0] if migrated_urls else None
+        db.commit()
+    finally:
+        db.close()
+
+    invalidate_destination_cache(int(destination_id_raw))
+    invalidate_public_landing_cache()
+
+
+def _handle_destination_record(destination: dict) -> None:
     index_destination_document(_to_search_document(destination))
+    _migrate_destination_images(destination)
 
 
 def dispatch_event(event: dict):

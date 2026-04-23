@@ -240,6 +240,7 @@ services:
       - interaction-service
       - admin-service
       - analytics-service
+      - worker-service
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
       interval: 10s

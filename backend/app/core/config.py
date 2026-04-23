@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     destination_image_backfill_sleep_seconds: float = 0.0
     destination_image_backfill_checkpoint_file: str = "./.runtime/destination_image_backfill_checkpoint.json"
 
+    activity_recommendation_endpoint_enabled: bool = True
+
     @field_validator("jwt_secret")
     @classmethod
     def validate_jwt_secret(cls, value: str) -> str:

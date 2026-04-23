@@ -41,9 +41,9 @@
             <div>
                 <h4>Khám phá</h4>
                 <ul>
-                    <li><a href="{{ route('destinations.index', ['price_level' => 1]) }}">Điểm đến tiết kiệm</a></li>
+                    <li><a href="{{ route('destinations.index', ['price_level' => 'low']) }}">Điểm đến tiết kiệm</a></li>
                     <li><a href="{{ route('destinations.index', ['rating' => 4.5]) }}">Đánh giá cao</a></li>
-                    <li><a href="{{ route('destinations.index', ['price_level' => 3]) }}">Trải nghiệm cao cấp</a></li>
+                    <li><a href="{{ route('destinations.index', ['price_level' => 'high']) }}">Trải nghiệm cao cấp</a></li>
                 </ul>
             </div>
 

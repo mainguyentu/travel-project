@@ -105,7 +105,10 @@ class DestinationService:
             normalized["img_urls"] = clean or None
             normalized["img_url"] = clean[0] if clean else None
         elif isinstance(img_value, str):
-            normalized["img_url"] = img_value.strip() or None
+            img_text = img_value.strip() or None
+            normalized["img_url"] = img_text
+            if img_text and not normalized.get("img_urls"):
+                normalized["img_urls"] = [img_text]
 
         img_urls_value = normalized.get("img_urls")
         if isinstance(img_urls_value, list):
@@ -277,7 +280,6 @@ class DestinationService:
             reviews = data.pop("reviews", [])
             resolved_category_ids = self._resolve_category_ids(category_ids, category_names)
             normalized_data = self._normalize_destination_data(data)
-            normalized_data = self._migrate_images_in_payload(normalized_data)
             self._ensure_destination_slug(normalized_data, reserved_slugs)
             destination = self.destinations.create(normalized_data)
             if resolved_category_ids:

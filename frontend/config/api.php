@@ -29,6 +29,12 @@ return [
     // CORS and SSL verification
     'verify_ssl' => env('API_VERIFY_SSL', true),
 
+    // Feature flags for staged rollout
+    'flags' => [
+        'activity_recommendation_endpoint_enabled' => env('FEATURE_ACTIVITY_RECOMMENDATION_ENDPOINT_ENABLED', true),
+        'activity_recommendation_home_enabled' => env('FEATURE_ACTIVITY_RECOMMENDATION_HOME_ENABLED', true),
+    ],
+
     // Frontend response cache (Redis)
     'cache' => [
         'enabled' => env('API_CACHE_ENABLED', true),

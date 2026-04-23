@@ -6,11 +6,49 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.db.models import AuditLog, Category, CategoryDestination, Destination, DestinationInsight, User
+from app import app_factory
+from app.db.models import (
+    Activity,
+    ActivityRule,
+    AuditLog,
+    Category,
+    CategoryDestination,
+    Destination,
+    DestinationActivity,
+    DestinationInsight,
+    User,
+)
 from app.db.session import SessionLocal
 from app.main import app
 
 client = TestClient(app)
+
+
+class _FakePipeline:
+    def __init__(self, counters: dict[str, int]):
+        self._counters = counters
+        self._results: list[int | bool] = []
+
+    def incr(self, key: str, amount: int = 1):
+        self._counters[key] = self._counters.get(key, 0) + amount
+        self._results.append(self._counters[key])
+        return self
+
+    def expire(self, key: str, ttl: int):
+        _ = (key, ttl)
+        self._results.append(True)
+        return self
+
+    def execute(self):
+        return self._results
+
+
+class _FakeRedis:
+    def __init__(self):
+        self._counters: dict[str, int] = {}
+
+    def pipeline(self):
+        return _FakePipeline(self._counters)
 
 
 def seed_basic():
@@ -200,6 +238,132 @@ def test_public_and_destinations():
     payload = detail.json()["data"]
     assert "insight" in payload
     assert "metrics" in payload
+
+
+def test_public_activity_recommendations_contract():
+    _, _, _, _ = seed_basic()
+
+    db = SessionLocal()
+    try:
+        activity = db.query(Activity).filter(Activity.slug == "city-tour").first()
+        if not activity:
+            activity = Activity(slug="city-tour", name="City tour", description="Explore city", is_active=True)
+            db.add(activity)
+            db.flush()
+
+        rule = db.query(ActivityRule).filter(ActivityRule.activity_id == activity.id).first()
+        if not rule:
+            rule = ActivityRule(
+                activity_id=activity.id,
+                scenery_weight=0.35,
+                accessibility_weight=0.20,
+                crowd_weight=0.20,
+                value_weight=0.25,
+                crowd_mode="prefer_low",
+                min_match_threshold=0.30,
+            )
+            db.add(rule)
+
+        destination = db.query(Destination).filter(Destination.slug == "my-khe-beach").first()
+        assert destination is not None
+
+        insight = db.query(DestinationInsight).filter(DestinationInsight.destination_id == destination.id).first()
+        if not insight:
+            insight = DestinationInsight(
+                destination_id=destination.id,
+                final_data={"scenery": 88, "accessibility": 72, "crowd": 42, "value": 76},
+                score_snapshot={"scenery": 88, "accessibility": 72, "crowd": 42, "value": 76},
+            )
+            db.add(insight)
+        else:
+            insight.final_data = {"scenery": 88, "accessibility": 72, "crowd": 42, "value": 76}
+            insight.score_snapshot = {"scenery": 88, "accessibility": 72, "crowd": 42, "value": 76}
+
+        mapping = (
+            db.query(DestinationActivity)
+            .filter(
+                DestinationActivity.destination_id == destination.id,
+                DestinationActivity.activity_id == activity.id,
+            )
+            .first()
+        )
+        if not mapping:
+            mapping = DestinationActivity(
+                destination_id=destination.id,
+                activity_id=activity.id,
+                weight=1.0,
+                source="seed",
+            )
+            db.add(mapping)
+        else:
+            mapping.weight = 1.0
+            mapping.source = "seed"
+
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.get("/api/v1/public/activities/city-tour/recommendations", params={"page": 1, "limit": 10})
+    assert resp.status_code == 200
+
+    payload = resp.json()
+    assert payload["success"] is True
+    assert "data" in payload
+    assert "meta" in payload
+    assert "request_id" in payload["meta"]
+
+    data = payload["data"]
+    assert "activity" in data
+    assert "highlight_destinations" in data
+    assert "recommended_destinations" in data
+    assert "trending" in data
+
+    assert data["activity"] is not None
+    assert data["activity"]["slug"] == "city-tour"
+    assert isinstance(data["highlight_destinations"], list)
+    assert isinstance(data["recommended_destinations"], list)
+    assert isinstance(data["trending"], list)
+
+
+def test_public_activity_recommendations_fallback_on_engine_error(monkeypatch):
+    from app.services import activity_recommendation as activity_reco_module
+
+    def _raise_error(*_args, **_kwargs):
+        raise RuntimeError("simulated engine failure")
+
+    monkeypatch.setattr(activity_reco_module.ActivityRecommendationEngine, "recommend", _raise_error)
+
+    resp = client.get("/api/v1/public/activities/city-tour/recommendations", params={"page": 1, "limit": 10})
+    assert resp.status_code == 200
+
+    payload = resp.json()
+    assert payload["success"] is True
+    assert "data" in payload
+    assert "meta" in payload
+
+    data = payload["data"]
+    assert data["activity"] is None
+    assert data["highlight_destinations"] == []
+    assert data["recommended_destinations"] == []
+    assert data["trending"] == []
+    assert data["error_info"] is not None
+    assert data["error_info"]["endpoint_error_code"] == "ACTIVITY_RECOMMENDATION_ENDPOINT_ERROR"
+
+
+def test_public_activity_recommendations_rate_limited_by_ip(monkeypatch):
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(app_factory, "get_redis", lambda: fake_redis)
+    monkeypatch.setattr(settings, "rate_limit_ip_per_min", 2)
+
+    r1 = client.get("/api/v1/public/activities/city-tour/recommendations")
+    r2 = client.get("/api/v1/public/activities/city-tour/recommendations")
+    r3 = client.get("/api/v1/public/activities/city-tour/recommendations")
+
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r3.status_code == 429
+    assert r3.json()["success"] is False
+    assert r3.json()["error"]["code"] == "RATE_LIMIT"
 
 
 def test_interaction_flow():

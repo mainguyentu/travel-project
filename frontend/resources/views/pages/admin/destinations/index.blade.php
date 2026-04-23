@@ -241,7 +241,7 @@
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn-small btn-danger"
-                                        onclick="return confirm('Xoa diem den nay?')">Xoá</button>
+                                        onclick="return confirm('Xoá địa điểm này ?')">Xoá</button>
                                 </form>
                             </td>
                         </tr>

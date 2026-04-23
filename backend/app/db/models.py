@@ -3,6 +3,7 @@
     BigInteger,
     Integer,
     SmallInteger,
+    Boolean,
     String,
     Text,
     Numeric,
@@ -90,6 +91,68 @@ class Destination(Base):
     categories = relationship("CategoryDestination", back_populates="destination", cascade="all, delete-orphan")
     insight = relationship("DestinationInsight", back_populates="destination", uselist=False, cascade="all, delete-orphan")
     metrics = relationship("DestinationMetric", back_populates="destination", uselist=False, cascade="all, delete-orphan")
+    activity_mappings = relationship("DestinationActivity", back_populates="destination", cascade="all, delete-orphan")
+    features = relationship("DestinationFeature", back_populates="destination", uselist=False, cascade="all, delete-orphan")
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id = Column(IDType, primary_key=True, autoincrement=True)
+    name = Column(String(120), nullable=False)
+    slug = Column(String(160), unique=True, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    destination_mappings = relationship("DestinationActivity", back_populates="activity", cascade="all, delete-orphan")
+    rule = relationship("ActivityRule", back_populates="activity", uselist=False, cascade="all, delete-orphan")
+
+
+class DestinationActivity(Base):
+    __tablename__ = "destination_activities"
+
+    destination_id = Column(IDType, ForeignKey("destinations.id"), primary_key=True)
+    activity_id = Column(IDType, ForeignKey("activities.id"), primary_key=True)
+    weight = Column(Numeric(4, 3), nullable=False, default=1.0)
+    source = Column(String(20), nullable=False, default="manual")
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    destination = relationship("Destination", back_populates="activity_mappings")
+    activity = relationship("Activity", back_populates="destination_mappings")
+
+
+class ActivityRule(Base):
+    __tablename__ = "activity_rules"
+
+    activity_id = Column(IDType, ForeignKey("activities.id"), primary_key=True)
+    scenery_weight = Column(Numeric(5, 4), nullable=False, default=0.25)
+    accessibility_weight = Column(Numeric(5, 4), nullable=False, default=0.25)
+    crowd_weight = Column(Numeric(5, 4), nullable=False, default=0.25)
+    value_weight = Column(Numeric(5, 4), nullable=False, default=0.25)
+    crowd_mode = Column(String(20), nullable=False, default="prefer_low")
+    min_match_threshold = Column(Numeric(4, 3), nullable=False, default=0)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    activity = relationship("Activity", back_populates="rule")
+
+
+class DestinationFeature(Base):
+    __tablename__ = "destination_features"
+
+    destination_id = Column(IDType, ForeignKey("destinations.id"), primary_key=True)
+    is_indoor = Column(Boolean, nullable=True)
+    is_outdoor = Column(Boolean, nullable=True)
+    suitable_time = Column(String(20), nullable=False, default="both")
+    budget_level = Column(String(20), nullable=True)
+    duration_suggested_minutes = Column(Integer, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    destination = relationship("Destination", back_populates="features")
 
 
 class CategoryDestination(Base):
