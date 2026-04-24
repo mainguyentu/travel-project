@@ -1,254 +1,186 @@
-﻿# Backend (FastAPI)
+# Backend (FastAPI)
 
-Backend triển khai theo mô hình module/service với FastAPI, SQLAlchemy, Alembic và Redis (cache + rate-limit).
+Backend là lớp nghiệp vụ chính của Travel Project, cung cấp API theo domain và phát event cho worker xử lý analytics/search.
 
-Backend là phần lõi nghiệp vụ của Travel Project, đồng thời publish events sang Kafka để worker cập nhật analytics và search index.
+Cập nhật: 2026-04-24
 
-## Mục tiêu tài liệu
+## 1. Vai trò backend
 
-- Backend developer: nắm nhanh cấu trúc và luồng chạy.
-- QA: có checklist test API local nhanh.
-- DevOps: nắm rõ biến môi trường và mode chạy.
+- Quản lý auth và phiên đăng nhập token.
+- Cung cấp destinations/public feed/chi tiết.
+- Xử lý favorites, ratings và admin operations.
+- Tính toán metrics và insight cho destination.
+- Publish event sang Kafka cho worker.
 
-## Cập nhật theo tiến độ hiện tại
+## 2. Architecture map
 
-- Bổ sung API docs portal tại gateway: `/api-docs`, specs theo từng service và trang Swagger/Redoc riêng.
-- Bổ sung endpoint admin bulk create destinations: `POST /api/v1/admin/destinations/bulk`.
-- Payload destination detail đã bao gồm thêm `insight` và `metrics`.
+- Monolith mode: `uvicorn app.main:app --reload`.
+- Service-split mode: auth, destination, interaction, admin, analytics qua API gateway.
+- Worker mode: `app.worker.consumer`.
 
-## Tài liệu liên quan trong backend
+Folder quan trọng:
 
-- `docs/API_REFERENCE.md`: danh sách endpoint và payload mẫu.
-- `docs/ARCHITECTURE.md`: kiến trúc runtime, data flow, gateway route map.
-- `docs/INSIGHT_PROCESSING.md`: thuật toán và quy tắc cập nhật insight theo rating/comment.
-- `docs/SECURITY_RUNBOOK.md`: quy trình bảo mật, rotation secrets, incident checklist.
-- `docs/WORKER_RUNBOOK.md`: vận hành worker, DLQ và replay.
-- `docs/OBSERVABILITY_BASELINE.md`: guardrails DB/Redis và threshold cảnh báo.
-- `docs/DEPLOYMENT_RUNBOOK.md`: quy trình release/deploy staging/production qua GitHub Actions.
-- `../DOCKER_INTEGRATION.md`: tổng quan tích hợp Docker toàn hệ thống.
+- `app/routers`: API endpoints.
+- `app/services`: business logic.
+- `app/repositories`: data access.
+- `app/db`: models + session.
+- `app/worker`: kafka consumer.
+- `alembic`: migrations.
+- `scripts`: seed, replay DLQ, backfill image.
+- `tests`: backend tests.
 
-## Cấu trúc chính
+## 3. Tài liệu backend
 
-- `app/main.py`: app tổng hợp toàn bộ router (monolith mode, chạy bằng `uvicorn app.main:app`).
-- `app/apps/*.py`: app tách theo service (auth, destination, interaction, admin, analytics).
-- `app/routers/`: endpoint theo domain.
-- `app/services/`, `app/repositories/`: business logic và data access.
-- `app/services/insight.py`: xử lý insight theo luồng tạo destination và cập nhật rating.
-- `app/db/`: models, session, base.
-- `app/worker/`: Kafka consumer xử lý analytics/search bất đồng bộ.
-- `alembic/`: migration scripts.
-- `scripts/seed.py`: dữ liệu mẫu local.
-- `tests/`: test backend.
+- `docs/README.md`
+- `docs/API_REFERENCE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/INSIGHT_PROCESSING.md`
+- `docs/SECURITY_RUNBOOK.md`
+- `docs/WORKER_RUNBOOK.md`
+- `docs/OBSERVABILITY_BASELINE.md`
+- `docs/DEPLOYMENT_RUNBOOK.md`
 
-## Biến môi trường
+## 4. Biến môi trường
 
-Sao chép từ mẫu:
+Tạo file env từ mẫu:
 
 ```bash
 cp .env.example .env
 ```
 
-PowerShell (Windows):
+PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Các biến chính:
+Nhóm biến chính:
 
-- `DATABASE_URL`
-- `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, `DB_POOL_RECYCLE`
-- `JWT_SECRET`, `JWT_ISSUER`, `JWT_ACCESS_TTL_MIN`, `JWT_REFRESH_TTL_DAYS`
-- `CORS_ORIGINS`
-- `REDIS_URL`, `REDIS_MAX_CONNECTIONS`, `REDIS_SOCKET_CONNECT_TIMEOUT`, `REDIS_SOCKET_TIMEOUT`
-- `CACHE_TTL_SECONDS`
-- `RATE_LIMIT_IP_PER_MIN`, `RATE_LIMIT_USER_PER_MIN`
-- `KAFKA_ENABLED`, `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC_*`, `KAFKA_DLQ_TOPIC`, `KAFKA_CONSUMER_GROUP`
-- `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL`, `ELASTICSEARCH_INDEX`, `SEARCH_USE_ELASTICSEARCH`
-- `WORKER_RETRY_MAX`, `WORKER_RETRY_BACKOFF_SECONDS`
-- `DESTINATION_IMAGE_CLOUDINARY_ENABLED`
-- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_FOLDER`
-- `DESTINATION_IMAGE_TIMEOUT_SECONDS`, `DESTINATION_IMAGE_MAX_BYTES`, `DESTINATION_IMAGE_UPLOAD_CONCURRENCY`
-- `DESTINATION_IMAGE_BACKFILL_BATCH_SIZE`, `DESTINATION_IMAGE_BACKFILL_SLEEP_SECONDS`, `DESTINATION_IMAGE_BACKFILL_CHECKPOINT_FILE`
+- Data source và pools: `DATABASE_URL`, `DB_POOL_*`
+- Auth và security: `JWT_*`, `CORS_ORIGINS`
+- Cache và rate-limit: `REDIS_*`, `CACHE_TTL_SECONDS`, `RATE_LIMIT_*`
+- Event pipeline: `KAFKA_*`
+- Search: `ELASTICSEARCH_*`, `SEARCH_USE_ELASTICSEARCH`
+- Worker reliability: `WORKER_RETRY_*`
+- Destination images: `DESTINATION_IMAGE_*`, `CLOUDINARY_*`
 
-Lưu ý bảo mật cấu hình:
+Lưu ý:
 
-- `JWT_SECRET` bắt buộc tối thiểu 32 ký tự.
-- `CORS_ORIGINS` bắt buộc là whitelist origin cụ thể (không cho phép `*`).
-- `CORS_ORIGINS` hỗ trợ định dạng JSON array hoặc chuỗi ngăn cách dấu phẩy.
+- `JWT_SECRET` tối thiểu 32 ký tự.
+- `CORS_ORIGINS` phải là whitelist cụ thể.
 
-## Chạy local (không Docker)
+## 5. Chạy backend local (không Docker)
 
-1. Cài dependencies
+1) Cài dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Chạy migration
+2) Chạy migration
 
 ```bash
 alembic upgrade head
 ```
 
-3. Seed dữ liệu mẫu
+3) Seed data
 
 ```bash
 python scripts/seed.py
 ```
 
-4. Chạy app tổng hợp
+4) Chạy API app
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Mặc định app chạy ở `http://localhost:8000`.
-
-- Health: `GET /health`
-- API prefix: `/api/v1`
-- Swagger UI: `/docs`
-
-5. (Tuỳ chọn) chạy worker local
+5) Chạy worker (tùy chọn)
 
 ```bash
 python -m app.worker.consumer
 ```
 
-Replay event từ DLQ:
+6) Replay DLQ (tùy chọn)
 
 ```bash
 python scripts/replay_dlq.py --limit 100
 ```
 
-Backfill ảnh destination lên Cloudinary (batch + checkpoint/resume):
+7) Backfill image Cloudinary (tùy chọn)
 
 ```bash
 python scripts/backfill_destination_images.py --batch-size 50
 ```
 
-Ví dụ chạy thử giới hạn 2 batch đầu:
+## 6. Chạy full stack bằng Docker Compose
 
-```bash
-python scripts/backfill_destination_images.py --batch-size 50 --max-batches 2
-```
-
-## Chạy theo service (không gateway)
-
-```bash
-uvicorn app.apps.auth_service:app --reload --port 8001
-uvicorn app.apps.destination_service:app --reload --port 8002
-uvicorn app.apps.interaction_service:app --reload --port 8003
-uvicorn app.apps.admin_service:app --reload --port 8004
-uvicorn app.apps.analytics_service:app --reload --port 8005
-```
-
-## Chạy full stack với Docker Compose (khuyến nghị)
-
-Từ thư mục root project:
+Từ root project:
 
 ```bash
 docker compose up --build
 ```
 
-Gateway: `http://localhost:8080`
+Sau khi lên:
 
-Frontend khi chạy full Docker Compose ở `http://localhost` (service `frontend`, cổng host 80).
+- Gateway: http://localhost:8080
+- Docs portal: http://localhost:8080/api-docs
+- Frontend (service riêng): http://localhost
 
-Gateway chỉ phục vụ API và docs portal; root `/` trả về trạng thái gateway, không proxy frontend.
+## 7. Kiểm tra nhanh
 
-Route map qua gateway:
-
-- `/api/v1/auth/*` -> `auth-service`
-- `/api/v1/public/*` -> `destination-service`
-- `/api/v1/destinations/*` -> `destination-service`
-- `/api/v1/me/*` -> `interaction-service`
-- `/api/v1/admin/*` -> `admin-service`
-- `/api/v1/analytics/*` -> `analytics-service`
-
-### Worker service
-
-Consumer xử lý event Kafka (favorite/rating/destination/view):
-
-```bash
-python -m app.worker.consumer
-```
-
-Lưu ý: cần bật Kafka/Elasticsearch theo biến môi trường (`KAFKA_ENABLED`, `ELASTICSEARCH_ENABLED`) hoặc chạy qua Docker Compose.
-
-## Kiểm tra nhanh
-
-Health check:
+Health:
 
 ```bash
 curl http://localhost:8080/health
 ```
 
-PowerShell (Windows):
-
-```powershell
-curl.exe http://localhost:8080/health
-```
-
-Login qua gateway:
+Login:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
-	-H "Content-Type: application/json" \
-	-d '{"email":"user@alats.vn","password":"User@123"}'
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@alats.vn","password":"User@123"}'
 ```
 
-PowerShell (Windows):
+Windows PowerShell:
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
-	-ContentType "application/json" `
-	-Body '{"email":"user@alats.vn","password":"User@123"}'
+  -ContentType "application/json" `
+  -Body '{"email":"user@alats.vn","password":"User@123"}'
 ```
 
-API docs nhanh:
+Docs URLs:
 
-```text
-http://localhost:8080/api-docs
-http://localhost:8080/api-docs/specs/admin.json
-http://localhost:8080/api-docs/swagger/admin
-http://localhost:8080/api-docs/redoc/admin
-```
+- http://localhost:8080/api-docs
+- http://localhost:8080/api-docs/specs/admin.json
+- http://localhost:8080/api-docs/swagger/admin
+- http://localhost:8080/api-docs/redoc/admin
 
-Public list:
+## 8. Test
 
-```bash
-curl "http://localhost:8080/api/v1/destinations?page=1&limit=5"
-```
-
-Favorite (thay `<token>`):
-
-```bash
-curl -X POST http://localhost:8080/api/v1/me/favorites/1 \
-	-H "Authorization: Bearer <token>"
-```
-
-Chạy test backend:
+Chạy test nhanh:
 
 ```bash
 pytest -q
 ```
 
-Chạy test có coverage gate (tương đương CI quality workflow):
+Chạy với coverage gate:
 
 ```bash
 pytest tests -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=70
 ```
 
-## Tài khoản seed mặc định (local)
+## 9. Tài khoản seed
 
 - Admin: `admin@alats.vn / Admin@123`
 - User: `user@alats.vn / User@123`
 
-## Ghi chú bảo mật và vận hành
+Chỉ dùng cho local và test.
 
-- Không dùng `JWT_SECRET=change-me` ngoài môi trường dev.
-- Tài khoản mẫu từ `scripts/seed.py` chỉ dùng cho local/testing.
-- Tránh đưa secrets hoặc internal URL vào tài liệu public.
-- Khi deploy staging/production, tham chiếu `docs/DEPLOYMENT_RUNBOOK.md` để cấu hình secrets/workflows đúng chuẩn.
-- Khi backend code hoặc route map thay đổi trong Docker, rebuild và force recreate các backend services cùng `api-gateway` để tránh container dùng image hoặc upstream cũ.
+## 10. Vận hành và bảo mật
+
+- Không sử dụng secret mặc định ngoài môi trường dev.
+- Không đưa secrets vào codebase.
+- Khi thay đổi route map hoặc backend image trong compose, cần rebuild + force recreate để tránh runtime stale.
