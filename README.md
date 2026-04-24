@@ -1,133 +1,101 @@
 # Travel Project
 
-Hệ thống gợi ý và quản trị điểm đến du lịch, gồm:
+Travel Project là hệ thống full-stack phục vụ quản lý và khám phá điểm đến du lịch, gồm backend API, frontend SSR và hạ tầng local/CI-CD.
 
-- Backend FastAPI (service split qua API Gateway)
-- Frontend Laravel Blade (SSR) gọi API qua gateway; trong Docker Compose, UI chạy ở service `frontend` riêng, còn `api-gateway` chỉ phục vụ API và docs
-- Hạ tầng local bằng Docker Compose (PostgreSQL, Redis, Kafka, Elasticsearch, Nginx)
+README tổng này đóng vai trò:
 
-README này là tài liệu tổng để onboard nhanh toàn dự án.
+- Tổng quan kiến trúc và phạm vi dự án.
+- Hướng dẫn chạy nhanh cho thành viên mới.
+- Bản đồ tài liệu để tra cứu đúng ngữ cảnh.
 
-## 0. Tổng Quan Dự Án
+Cập nhật: 2026-04-24
 
-Travel Project là hệ thống full-stack gồm backend API và frontend SSR, được tổ chức theo kiến trúc service-split qua API Gateway.
+## 1. Tổng quan dự án
 
-Phạm vi chính:
+Thành phần chính:
 
-- Quản lý người dùng và xác thực JWT.
-- Khám phá điểm đến, yêu thích, đánh giá.
-- Quản trị dữ liệu users/categories/destinations.
-- Thống kê analytics theo lượt xem/yêu thích/đánh giá.
-- Hạ tầng local và deploy bằng Docker Compose + GitHub Actions.
+- Backend: FastAPI, SQLAlchemy, Alembic, Redis, Kafka, Elasticsearch.
+- Frontend: Laravel Blade SSR + Vite.
+- Gateway: Nginx định tuyến API theo service và host docs portal.
+- Runtime local: Docker Compose.
 
-## 0.1 Tiến Độ Hiện Tại (2026-04)
+Nghiệp vụ chính:
 
-- API docs portal đã hoạt động tại gateway qua `/api-docs` (raw specs + Swagger + Redoc theo từng service).
-- Frontend admin UI đã có đầy đủ thao tác ghi dữ liệu cho users, categories, destinations.
-- Backend admin đã bổ sung endpoint bulk create destinations.
-- Destination detail payload đã bổ sung `insight` và `metrics` cho popup chi tiết frontend.
+- Xác thực người dùng bằng access token và refresh token.
+- Public destinations: tìm kiếm, lọc, xem chi tiết.
+- Tương tác người dùng: favorites, ratings.
+- Quản trị: users, categories, destinations, stats.
+- Analytics và worker xử lý event bất đồng bộ.
 
-## 1. Cấu trúc workspace
+## 2. Kiến trúc runtime
 
-- `backend/`: FastAPI app, Alembic migration, seed script, test.
-- `frontend/`: Laravel UI (public + user + admin), gọi API backend.
+Trong Docker Compose:
+
+- Frontend UI: http://localhost
+- API Gateway + docs: http://localhost:8080
+- Gateway root `/` chỉ trả trạng thái, không proxy frontend.
+
+Service map qua gateway:
+
+- `/api/v1/auth/*` -> auth-service
+- `/api/v1/public/*` -> destination-service
+- `/api/v1/destinations/*` -> destination-service
+- `/api/v1/me/*` -> interaction-service
+- `/api/v1/admin/*` -> admin-service
+- `/api/v1/analytics/*` -> analytics-service
+
+## 3. Cấu trúc workspace
+
+- `backend/`: backend app, migrations, scripts, tests, backend docs.
+- `frontend/`: Laravel UI, SSR pages, API client bridge.
+- `design-docs/`: bộ tài liệu thiết kế và implementation plan.
 - `docker-compose.yml`: stack local đầy đủ.
-- `nginx.conf`: route map gateway tới từng backend service.
-- `design-docs/`: bộ tài liệu phân tích thiết kế và chuẩn triển khai.
-- `DOCKER_INTEGRATION.md`: tài liệu tích hợp Docker runtime và routing gateway.
+- `docker-compose.deploy.yml`: stack deploy.
+- `nginx.conf`: gateway routing cho API và docs portal.
+- `scripts/ci.ps1`: script quality gate local.
 
-## 2. Kiến trúc runtime (local)
-
-Các container chính:
-
-- `postgres` (PostgreSQL 16)
-- `redis`
-- `kafka`
-- `elasticsearch`
-- `migrate` (chạy migration + seed)
-- `auth-service`
-- `destination-service`
-- `interaction-service`
-- `admin-service`
-- `analytics-service`
-- `worker-service`
-- `frontend` (Laravel, `http://localhost` trong Docker Compose; nội bộ chạy `php artisan serve` trên `8001`)
-- `api-gateway` (Nginx, `http://localhost:8080` cho API và docs)
-
-Gateway route map:
-
-- `/api/v1/auth/*` -> `auth-service`
-- `/api/v1/public/*` -> `destination-service`
-- `/api/v1/destinations/*` -> `destination-service`
-- `/api/v1/me/*` -> `interaction-service`
-- `/api/v1/admin/*` -> `admin-service`
-- `/api/v1/analytics/*` -> `analytics-service`
-
-Lưu ý: gateway không proxy frontend; root `/` trả về trạng thái của gateway, còn UI public/admin chạy qua service `frontend` ở `http://localhost`.
-
-## 3. Bắt Đầu Nhanh (khuyến nghị)
+## 4. Chạy nhanh bằng Docker Compose (khuyến nghị)
 
 Yêu cầu:
 
-- Docker + Docker Compose
+- Docker Desktop (hoặc Docker Engine + Compose plugin).
 
-Chạy toàn hệ thống (lần đầu):
+Lần đầu:
 
 ```bash
 docker compose up --build
 ```
 
-PowerShell (Windows):
-
-```powershell
-docker compose up --build
-```
-
-Từ lần sau, khi chỉ thay đổi code nhỏ (không đổi dependency), chạy lại không cần build:
+Lần sau:
 
 ```bash
 docker compose up -d
 ```
 
-```powershell
-docker compose up -d
-```
-
-Với cấu hình hiện tại, backend API chạy `uvicorn --reload` và source code được bind mount nên thay đổi code sẽ tự áp dụng trong container.
-
-Sau khi stack lên, mở:
-
-- Frontend UI: `http://localhost`
-- API Gateway: `http://localhost:8080`
-- API Docs: `http://localhost:8080/api-docs`
-
-Kiểm tra nhanh:
-
-```bash
-curl http://localhost:8080/
-curl http://localhost:8080/health
-```
-
-PowerShell (Windows):
-
-```powershell
-curl.exe http://localhost:8080/
-curl.exe http://localhost:8080/health
-```
-
-Dừng:
+Dừng stack:
 
 ```bash
 docker compose down
 ```
 
-## 4. Chạy tách frontend/backend
+Kiểm tra nhanh:
 
-### 4.1 Backend
+```bash
+curl http://localhost:8080/health
+```
 
-Xem hướng dẫn chi tiết tại `backend/README.md`.
+Windows PowerShell:
 
-Luồng cơ bản:
+```powershell
+curl.exe http://localhost:8080/health
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
+  -ContentType "application/json" `
+  -Body '{"email":"user@alats.vn","password":"User@123"}'
+```
+
+## 5. Chạy tách riêng từng phần
+
+Backend:
 
 ```bash
 cd backend
@@ -137,11 +105,7 @@ python scripts/seed.py
 uvicorn app.main:app --reload
 ```
 
-### 4.2 Frontend
-
-Xem hướng dẫn chi tiết tại `frontend/README.md`.
-
-Luồng cơ bản:
+Frontend:
 
 ```bash
 cd frontend
@@ -153,160 +117,74 @@ php artisan serve
 npm run dev
 ```
 
-Mặc định frontend sẽ gọi API tại `API_BASE_URL=http://localhost:8080`.
+Lưu ý:
 
-## 5. URL và endpoint quan trọng
+- Frontend mặc định gọi API qua `API_BASE_URL=http://localhost:8080`.
 
-- Frontend UI (Docker Compose): `http://localhost`
+## 6. URL quan trọng
 
-- Frontend UI (chạy frontend local tách riêng): `http://127.0.0.1:8000`
+- Frontend UI (compose): http://localhost
+- Frontend UI (local): http://127.0.0.1:8000
+- API gateway: http://localhost:8080
+- API docs portal: http://localhost:8080/api-docs
+- Gateway health: `GET /health`
+- Backend monolith swagger (khi chạy backend riêng): http://localhost:8000/docs
 
-- API Gateway: `http://localhost:8080`
+OpenAPI specs qua gateway:
 
-- Ghi chú: gateway chỉ phục vụ API và docs, không serve frontend.
-
-- API Docs Portal: `http://localhost:8080/api-docs`
-
-- Health gateway: `GET /health`
-
-- OpenAPI specs:
-  - `http://localhost:8080/api-docs/specs/auth.json`
-
-  - `http://localhost:8080/api-docs/specs/destination.json`
-
-  - `http://localhost:8080/api-docs/specs/interaction.json`
-
-  - `http://localhost:8080/api-docs/specs/admin.json`
-
-  - `http://localhost:8080/api-docs/specs/analytics.json`
-
-- Swagger service docs:
-  - `http://localhost:8080/api-docs/swagger/auth`
-
-  - `http://localhost:8080/api-docs/swagger/destination`
-
-  - `http://localhost:8080/api-docs/swagger/interaction`
-
-  - `http://localhost:8080/api-docs/swagger/admin`
-
-  - `http://localhost:8080/api-docs/swagger/analytics`
-
-- Redoc service docs:
-  - `http://localhost:8080/api-docs/redoc/auth`
-
-  - `http://localhost:8080/api-docs/redoc/destination`
-
-  - `http://localhost:8080/api-docs/redoc/interaction`
-
-  - `http://localhost:8080/api-docs/redoc/admin`
-
-  - `http://localhost:8080/api-docs/redoc/analytics`
-
-- Analytics summary: `GET /api/v1/analytics/summary`
-
-- Swagger backend (monolith mode): `http://localhost:8000/docs`
-
-## 6. Bộ tài liệu chính
-
-- Tổng hợp backend: `backend/README.md`
-
-- API backend: `backend/docs/API_REFERENCE.md`
-
-- Kiến trúc backend: `backend/docs/ARCHITECTURE.md`
-
-- Thuật toán insight destination: `backend/docs/INSIGHT_PROCESSING.md`
-
-- Runbook deploy: `backend/docs/DEPLOYMENT_RUNBOOK.md`
-
-- Runbook bảo mật: `backend/docs/SECURITY_RUNBOOK.md`
-
-- Runbook worker: `backend/docs/WORKER_RUNBOOK.md`
-
-- Baseline quan sát: `backend/docs/OBSERVABILITY_BASELINE.md`
-
-- Tổng hợp frontend: `frontend/README.md`
-
-- Bộ design docs: `design-docs/README.md`
-
-- Docker integration: `DOCKER_INTEGRATION.md`
+- `/api-docs/specs/auth.json`
+- `/api-docs/specs/destination.json`
+- `/api-docs/specs/interaction.json`
+- `/api-docs/specs/admin.json`
+- `/api-docs/specs/analytics.json`
 
 ## 7. Tài khoản seed local
 
 - Admin: `admin@alats.vn / Admin@123`
-
 - User: `user@alats.vn / User@123`
 
-Chỉ dùng cho môi trường dev/test local.
+Chỉ dùng cho local và test.
 
-## 8. Ghi chú vận hành và bảo mật
+## 8. Bản đồ tài liệu
 
-- Không dùng secret mặc định ở staging/production.
+Tài liệu tổng quan:
 
-- Không commit thông tin nhạy cảm vào `.env`.
+- `backend/README.md`
+- `frontend/README.md`
+- `design-docs/README.md`
+- `DOCKER_INTEGRATION.md`
 
-- Gateway và route map là hợp đồng tích hợp giữa frontend và backend.
+Tài liệu backend chi tiết:
 
-- Khi sửa code backend trong Docker, nếu container giữ image cũ, rebuild và force recreate nhóm service backend cùng `api-gateway` để tránh stale routes hoặc stale image.
-
-- Test E2E smoke backend có tại `backend/tests/test_smoke_e2e.py`.
-
-## 9. Troubleshooting nhanh (Windows PowerShell)
-
-- Ưu tiên dùng `curl.exe` thay vì alias `curl` để tránh lỗi tham số.
-
-- Với request JSON, dùng `Invoke-RestMethod` sẽ ổn định hơn cho quoting.
-
-Ví dụ:
-
-```powershell
-curl.exe http://localhost:8080/health
-Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/auth/login" `
-	-ContentType "application/json" `
-	-Body '{"email":"user@alats.vn","password":"User@123"}'
-```
-
-## 10. Pipeline Chất Lượng Toàn Repo (P4)
-
-CI tại root dùng workflow:
-
-- `.github/workflows/repo-quality.yml`
-
-Nội dung chính:
-
-- Backend tests + coverage gate
-
-- Frontend build + feature tests + coverage artifact
-
-- Security scan dependency (pip/composer/npm) + backend image scan (Trivy)
-
-Chạy local một lệnh trên Windows PowerShell:
-
-```powershell
-./scripts/ci.ps1
-```
-
-Nếu cần bỏ qua security scan (chạy nhanh vòng test/build):
-
-```powershell
-./scripts/ci.ps1 -SkipSecurity
-```
-
-## 11. Triển Khai CI/CD Sản Phẩm (P5)
-
-Workflow mới tại root:
-
-- `.github/workflows/release-build.yml`: build + push image backend và API gateway lên GHCR.
-
-- `.github/workflows/deploy-staging.yml`: deploy staging qua SSH, sau đó chạy post-deploy SLO checks.
-
-- `.github/workflows/deploy-production.yml`: deploy production có approval qua GitHub Environment + hỗ trợ rollback theo tag.
-
-- `.github/workflows/post-deploy-slo-check.yml`: reusable workflow kiểm tra health/read/analytics latency sau deploy.
-
-- `.github/workflows/release-notes.yml`: tự động draft release notes bằng Release Drafter.
-
-Tài liệu vận hành:
-
+- `backend/docs/README.md`
+- `backend/docs/API_REFERENCE.md`
+- `backend/docs/ARCHITECTURE.md`
+- `backend/docs/INSIGHT_PROCESSING.md`
+- `backend/docs/SECURITY_RUNBOOK.md`
+- `backend/docs/WORKER_RUNBOOK.md`
+- `backend/docs/OBSERVABILITY_BASELINE.md`
 - `backend/docs/DEPLOYMENT_RUNBOOK.md`
 
-Các secret cần cấu hình được liệt kê đầy đủ trong runbook trên.
+## 9. Quality gate và CI/CD
+
+Quality workflow:
+
+- `.github/workflows/repo-quality.yml`
+- `scripts/ci.ps1`
+
+Release/deploy workflows:
+
+- `.github/workflows/release-build.yml`
+- `.github/workflows/deploy-staging.yml`
+- `.github/workflows/deploy-production.yml`
+- `.github/workflows/post-deploy-slo-check.yml`
+- `.github/workflows/release-notes.yml`
+
+Chi tiết vận hành deploy: `backend/docs/DEPLOYMENT_RUNBOOK.md`
+
+## 10. Lưu ý bảo mật và vận hành
+
+- Không commit thông tin nhạy cảm vào file env.
+- Không dùng secret mặc định ở staging/production.
+- Khi thay đổi route map, backend image hoặc gateway config, cần rebuild + recreate để tránh runtime stale.
+- Khi có sự cố bảo mật, theo checklist trong `backend/docs/SECURITY_RUNBOOK.md`.
