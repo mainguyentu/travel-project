@@ -1,10 +1,15 @@
-﻿from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.db.models import Category
+from app.repositories.boundary import RepositoryBoundaryMixin
 
 
-class CategoryRepository:
+class CategoryRepository(RepositoryBoundaryMixin):
+    owner_domain = "destination"
+    allowed_service_profiles = {"destination-service"}
+
     def __init__(self, db: Session):
+        self._assert_service_boundary(self.__class__.__name__)
         self.db = db
 
     def get_by_id(self, category_id: int) -> Category | None:

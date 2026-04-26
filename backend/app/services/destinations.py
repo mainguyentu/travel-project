@@ -150,6 +150,7 @@ class DestinationService:
     def _slugify(name: str) -> str:
         text = unicodedata.normalize("NFKD", name)
         text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = text.replace("đ", "d").replace("Đ", "D")
         text = text.lower().strip()
         text = re.sub(r"[^a-z0-9\s-]", "", text)
         text = re.sub(r"[\s_-]+", "-", text)

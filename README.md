@@ -50,7 +50,8 @@ Service map qua gateway:
 - `frontend/`: Laravel UI, SSR pages, API client bridge.
 - `design-docs/`: bộ tài liệu thiết kế và implementation plan.
 - `docker-compose.yml`: stack local đầy đủ.
-- `docker-compose.deploy.yml`: stack deploy.
+- `docker-compose.deploy.yml`: stack deploy (internal demo, not production-ready out of the box).
+- `.env.deploy.example`: env matrix mẫu cho deploy (staging/production).
 - `nginx.conf`: gateway routing cho API và docs portal.
 - `scripts/ci.ps1`: script quality gate local.
 
@@ -182,7 +183,25 @@ Release/deploy workflows:
 
 Chi tiết vận hành deploy: `backend/docs/DEPLOYMENT_RUNBOOK.md`
 
-## 10. Lưu ý bảo mật và vận hành
+## 10. Deploy env matrix (chuẩn hoá biến môi trường)
+
+`docker-compose.deploy.yml` không còn dùng dev default cho DB/Redis/Kafka/Elasticsearch/JWT.
+Tất cả biến quan trọng phải được cấp từ environment.
+
+Quy trình chuẩn:
+
+1. Tạo file env riêng cho từng môi trường từ `.env.deploy.example`.
+2. Điền đầy đủ biến bắt buộc (image, DB, secret, messaging/search endpoints).
+3. Giữ `RUN_SEED=false` mặc định; chỉ bật `RUN_SEED=true` cho môi trường demo cần seed.
+4. Không commit file env thật vào git.
+
+Ví dụ chạy deploy compose với env file:
+
+```bash
+docker compose --env-file .env.deploy.staging -f docker-compose.deploy.yml up -d
+```
+
+## 11. Lưu ý bảo mật và vận hành
 
 - Không commit thông tin nhạy cảm vào file env.
 - Không dùng secret mặc định ở staging/production.

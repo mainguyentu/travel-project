@@ -1,11 +1,16 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from app.db.models import Favorite, Rating, Destination
+from app.db.models import Favorite, Rating
+from app.repositories.boundary import RepositoryBoundaryMixin
 
 
-class InteractionRepository:
+class InteractionRepository(RepositoryBoundaryMixin):
+    owner_domain = "interaction"
+    allowed_service_profiles = {"interaction-service"}
+
     def __init__(self, db: Session):
+        self._assert_service_boundary(self.__class__.__name__)
         self.db = db
 
     def get_favorite(self, user_id: int, destination_id: int) -> Favorite | None:
@@ -32,15 +37,16 @@ class InteractionRepository:
             fav.deleted_at = datetime.now(timezone.utc)
             self.db.flush()
 
-    def list_favorites(self, user_id: int, offset: int, limit: int):
+    def list_favorite_destination_ids(self, user_id: int, offset: int, limit: int) -> list[int]:
         stmt = (
-            select(Destination)
-            .join(Favorite, Favorite.destination_id == Destination.id)
+            select(Favorite.destination_id)
             .where(Favorite.user_id == user_id, Favorite.deleted_at.is_(None))
+            .order_by(Favorite.created_at.desc(), Favorite.destination_id.asc())
             .offset(offset)
             .limit(limit)
         )
-        return self.db.execute(stmt).scalars().all()
+        rows = self.db.execute(stmt).scalars().all()
+        return [int(item) for item in rows if item is not None]
 
     def get_rating(self, user_id: int, destination_id: int) -> Rating | None:
         stmt = select(Rating).where(Rating.user_id == user_id, Rating.destination_id == destination_id)

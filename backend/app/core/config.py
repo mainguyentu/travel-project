@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     app_name: str = "Alats Travel DaNang API"
     api_prefix: str = "/api/v1"
     log_level: str = "INFO"
+    service_profile: str = "monolith"
 
     database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/travel"
     db_pool_size: int = 10
@@ -68,6 +69,14 @@ class Settings(BaseSettings):
     destination_image_backfill_checkpoint_file: str = "./.runtime/destination_image_backfill_checkpoint.json"
 
     activity_recommendation_endpoint_enabled: bool = True
+
+    # Internal service-to-service HTTP (Phase 2 - API-first boundary)
+    auth_service_url: str = "http://auth-service:8000"
+    destination_service_url: str = "http://destination-service:8000"
+    interaction_service_url: str = "http://interaction-service:8000"
+    admin_service_url: str = "http://admin-service:8000"
+    analytics_service_url: str = "http://analytics-service:8000"
+    internal_http_timeout_seconds: float = 5.0
 
     @field_validator("jwt_secret")
     @classmethod
