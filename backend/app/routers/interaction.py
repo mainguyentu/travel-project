@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
 from app.core.responses import response_success
 from app.core.deps import get_current_user
@@ -10,6 +10,7 @@ from app.utils.serializers import favorite_to_dict, rating_to_dict, destination_
 from app.core.events import EventType, build_event
 from app.core.config import settings
 from app.core.kafka_bus import publish_event
+from app.clients.internal_http import internal_request_json
 
 router = APIRouter(prefix="/me", tags=["interaction"])
 
@@ -56,8 +57,21 @@ def list_favorites(
 ):
     offset = (page - 1) * limit
     repo = InteractionRepository(db)
-    items = repo.list_favorites(current_user.id, offset, limit)
-    data = [destination_to_dict(i) for i in items]
+    destination_ids = repo.list_favorite_destination_ids(current_user.id, offset, limit)
+
+    if settings.service_profile == "monolith":
+        from app.repositories.destinations import DestinationRepository
+
+        destinations = DestinationRepository(db).get_by_ids(destination_ids)
+        data = [destination_to_dict(item) for item in destinations]
+    else:
+        payload = internal_request_json(
+            "POST",
+            base_url=settings.destination_service_url,
+            path=f"{settings.api_prefix}/internal/destinations/batch",
+            json={"ids": destination_ids},
+        )
+        data = payload.get("data", [])
     meta = {"request_id": request.state.request_id, "page": page, "limit": limit}
     return response_success(data, meta)
 
@@ -87,6 +101,27 @@ def upsert_rating(
             request_id=request.state.request_id,
         ),
     )
+    if settings.service_profile != "monolith":
+        internal_request_json(
+            "POST",
+            base_url=settings.destination_service_url,
+            path=f"{settings.api_prefix}/internal/destinations/{destination_id}/apply-rating-insight",
+            json={
+                "new_score": payload.rating_score,
+                "new_comment": payload.comment,
+                "old_score": old_rating.rating_score if old_rating else None,
+                "old_comment": old_rating.comment if old_rating else None,
+                "new_review_time": getattr(rating, "updated_at", None),
+                "old_review_time": getattr(old_rating, "updated_at", None) if old_rating else None,
+                "is_new_rating": old_rating is None,
+                "reviewer_user_id": current_user.id,
+            },
+        )
+        internal_request_json(
+            "POST",
+            base_url=settings.destination_service_url,
+            path=f"{settings.api_prefix}/internal/destinations/{destination_id}/recompute-rating-avg",
+        )
     return response_success(rating_to_dict(rating), {"request_id": request.state.request_id})
 
 

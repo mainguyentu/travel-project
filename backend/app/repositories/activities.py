@@ -11,10 +11,15 @@ from app.db.models import (
     DestinationFeature,
     DestinationInsight,
 )
+from app.repositories.boundary import RepositoryBoundaryMixin
 
 
-class ActivityRepository:
+class ActivityRepository(RepositoryBoundaryMixin):
+    owner_domain = "destination"
+    allowed_service_profiles = {"destination-service", "admin-service"}
+
     def __init__(self, db: Session):
+        self._assert_service_boundary(self.__class__.__name__)
         self.db = db
 
     def get_by_slug(self, slug: str, *, active_only: bool = True) -> Activity | None:
@@ -32,8 +37,12 @@ class ActivityRepository:
         return self.db.execute(stmt).scalar_one_or_none()
 
 
-class DestinationActivityRepository:
+class DestinationActivityRepository(RepositoryBoundaryMixin):
+    owner_domain = "destination"
+    allowed_service_profiles = {"destination-service", "admin-service"}
+
     def __init__(self, db: Session):
+        self._assert_service_boundary(self.__class__.__name__)
         self.db = db
 
     def get_mapping(self, activity_id: int, destination_id: int) -> DestinationActivity | None:

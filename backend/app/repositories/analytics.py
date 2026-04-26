@@ -3,11 +3,16 @@ from __future__ import annotations
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Destination, DestinationMetric
+from app.db.models import DestinationMetric
+from app.repositories.boundary import RepositoryBoundaryMixin
 
 
-class AnalyticsRepository:
+class AnalyticsRepository(RepositoryBoundaryMixin):
+    owner_domain = "analytics"
+    allowed_service_profiles = {"analytics-service", "worker-service"}
+
     def __init__(self, db: Session):
+        self._assert_service_boundary(self.__class__.__name__)
         self.db = db
 
     def ensure_metric(self, destination_id: int) -> DestinationMetric:
@@ -45,20 +50,16 @@ class AnalyticsRepository:
 
     def top_favorites(self, limit: int):
         stmt = (
-            select(Destination, DestinationMetric.favorite_count)
-            .join(DestinationMetric, DestinationMetric.destination_id == Destination.id)
-            .where(Destination.status == "active")
-            .order_by(DestinationMetric.favorite_count.desc(), Destination.id.asc())
+            select(DestinationMetric.destination_id, DestinationMetric.favorite_count)
+            .order_by(DestinationMetric.favorite_count.desc(), DestinationMetric.destination_id.asc())
             .limit(limit)
         )
         return self.db.execute(stmt).all()
 
     def top_views(self, limit: int):
         stmt = (
-            select(Destination, DestinationMetric.view_count)
-            .join(DestinationMetric, DestinationMetric.destination_id == Destination.id)
-            .where(Destination.status == "active")
-            .order_by(DestinationMetric.view_count.desc(), Destination.id.asc())
+            select(DestinationMetric.destination_id, DestinationMetric.view_count)
+            .order_by(DestinationMetric.view_count.desc(), DestinationMetric.destination_id.asc())
             .limit(limit)
         )
         return self.db.execute(stmt).all()
@@ -69,10 +70,8 @@ class AnalyticsRepository:
             else_=0.0,
         )
         stmt = (
-            select(Destination, avg_expr.label("rating_avg"), DestinationMetric.rating_count)
-            .join(DestinationMetric, DestinationMetric.destination_id == Destination.id)
-            .where(Destination.status == "active")
-            .order_by(avg_expr.desc(), DestinationMetric.rating_count.desc(), Destination.id.asc())
+            select(DestinationMetric.destination_id, avg_expr.label("rating_avg"), DestinationMetric.rating_count)
+            .order_by(avg_expr.desc(), DestinationMetric.rating_count.desc(), DestinationMetric.destination_id.asc())
             .limit(limit)
         )
         return self.db.execute(stmt).all()

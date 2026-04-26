@@ -173,6 +173,34 @@ def test_destination_service_create_many_defers_image_migration(monkeypatch):
         db.close()
 
 
+def test_destination_service_create_many_preserves_d_in_category_slug():
+    db = SessionLocal()
+    try:
+        suffix = uuid4().hex[:8]
+        service = DestinationService(db)
+
+        destinations = service.create_many(
+            [
+                {
+                    "name": f"Bulk Slug Destination {suffix}",
+                    "status": "active",
+                    "category": [f"Đà Nẵng {suffix}"],
+                }
+            ]
+        )
+
+        db.commit()
+
+        created = destinations[0]
+        category = db.query(Category).filter(Category.name == f"Đà Nẵng {suffix}").first()
+
+        assert created.slug.startswith(f"bulk-slug-destination-{suffix}")
+        assert category is not None
+        assert category.slug == f"da-nang-{suffix}"
+    finally:
+        db.close()
+
+
 def test_worker_handles_bulk_destination_created_events(monkeypatch):
     db = SessionLocal()
     try:

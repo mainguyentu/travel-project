@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: travel
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -55,23 +55,23 @@ services:
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
       DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
       DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL}
       REDIS_MAX_CONNECTIONS: ${REDIS_MAX_CONNECTIONS:-100}
       REDIS_SOCKET_CONNECT_TIMEOUT: ${REDIS_SOCKET_CONNECT_TIMEOUT:-2.0}
       REDIS_SOCKET_TIMEOUT: ${REDIS_SOCKET_TIMEOUT:-2.0}
-      KAFKA_ENABLED: ${KAFKA_ENABLED:-true}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
-      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-travel-backend}
-      KAFKA_TOPIC_FAVORITE: ${KAFKA_TOPIC_FAVORITE:-favorite-events}
-      KAFKA_TOPIC_RATING: ${KAFKA_TOPIC_RATING:-rating-events}
-      KAFKA_TOPIC_DESTINATION: ${KAFKA_TOPIC_DESTINATION:-destination-events}
-      KAFKA_TOPIC_VIEW: ${KAFKA_TOPIC_VIEW:-view-events}
-      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:-travel-events-dlq}
-      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:-travel-worker-group}
-      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-true}
-      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
-      ELASTICSEARCH_INDEX: ${ELASTICSEARCH_INDEX:-travel_destinations}
-      SEARCH_USE_ELASTICSEARCH: ${SEARCH_USE_ELASTICSEARCH:-true}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:?Set KAFKA_ENABLED}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?Set KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:?Set KAFKA_CLIENT_ID}
+      KAFKA_TOPIC_FAVORITE: ${KAFKA_TOPIC_FAVORITE:?Set KAFKA_TOPIC_FAVORITE}
+      KAFKA_TOPIC_RATING: ${KAFKA_TOPIC_RATING:?Set KAFKA_TOPIC_RATING}
+      KAFKA_TOPIC_DESTINATION: ${KAFKA_TOPIC_DESTINATION:?Set KAFKA_TOPIC_DESTINATION}
+      KAFKA_TOPIC_VIEW: ${KAFKA_TOPIC_VIEW:?Set KAFKA_TOPIC_VIEW}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:?Set KAFKA_DLQ_TOPIC}
+      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:?Set KAFKA_CONSUMER_GROUP}
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:?Set ELASTICSEARCH_ENABLED}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL}
+      ELASTICSEARCH_INDEX: ${ELASTICSEARCH_INDEX:?Set ELASTICSEARCH_INDEX}
+      SEARCH_USE_ELASTICSEARCH: ${SEARCH_USE_ELASTICSEARCH:?Set SEARCH_USE_ELASTICSEARCH}
       WORKER_RETRY_MAX: ${WORKER_RETRY_MAX:-3}
       WORKER_RETRY_BACKOFF_SECONDS: ${WORKER_RETRY_BACKOFF_SECONDS:-0.5}
       DESTINATION_IMAGE_CLOUDINARY_ENABLED: ${DESTINATION_IMAGE_CLOUDINARY_ENABLED:-false}
@@ -86,19 +86,28 @@ services:
       DESTINATION_IMAGE_BACKFILL_SLEEP_SECONDS: ${DESTINATION_IMAGE_BACKFILL_SLEEP_SECONDS:-0.0}
       DESTINATION_IMAGE_BACKFILL_CHECKPOINT_FILE: ${DESTINATION_IMAGE_BACKFILL_CHECKPOINT_FILE:-./.runtime/destination_image_backfill_checkpoint.json}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:-alats-travel}
-      CORS_ORIGINS: ${CORS_ORIGINS:-["https://app.example.com"]}
+      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS}
+      SERVICE_PROFILE: ${SERVICE_PROFILE:-monolith}
+      RUN_SEED: ${RUN_SEED:-false}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-lc", "alembic upgrade head && python scripts/seed.py"]
+    command:
+      [
+        "sh",
+        "-lc",
+        "alembic upgrade head && if [ \"$RUN_SEED\" = \"true\" ]; then python scripts/seed.py; else echo 'RUN_SEED=false, skip seed'; fi",
+      ]
     restart: "no"
 
   auth-service:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
-    environment: *backend_env
+    environment:
+      <<: *backend_env
+      SERVICE_PROFILE: auth-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -111,7 +120,9 @@ services:
 
   destination-service:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
-    environment: *backend_env
+    environment:
+      <<: *backend_env
+      SERVICE_PROFILE: destination-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,7 +135,9 @@ services:
 
   interaction-service:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
-    environment: *backend_env
+    environment:
+      <<: *backend_env
+      SERVICE_PROFILE: interaction-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,7 +150,9 @@ services:
 
   admin-service:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
-    environment: *backend_env
+    environment:
+      <<: *backend_env
+      SERVICE_PROFILE: admin-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,7 +165,9 @@ services:
 
   analytics-service:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
-    environment: *backend_env
+    environment:
+      <<: *backend_env
+      SERVICE_PROFILE: analytics-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,7 +184,9 @@ services:
 
   worker-service:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE before deploy}
-    environment: *backend_env
+    environment:
+      <<: *backend_env
+      SERVICE_PROFILE: worker-service
     depends_on:
       postgres:
         condition: service_healthy

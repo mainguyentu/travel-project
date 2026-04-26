@@ -1,13 +1,18 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy import select, func, or_, update
 from app.db.models import Destination, Category, CategoryDestination, Rating, Favorite
+from app.repositories.boundary import RepositoryBoundaryMixin
 
 
-class DestinationRepository:
+class DestinationRepository(RepositoryBoundaryMixin):
+    owner_domain = "destination"
+    allowed_service_profiles = {"destination-service", "worker-service"}
+
     def __init__(self, db: Session):
+        self._assert_service_boundary(self.__class__.__name__)
         self.db = db
 
     def get_by_id(self, destination_id: int) -> Destination | None:
