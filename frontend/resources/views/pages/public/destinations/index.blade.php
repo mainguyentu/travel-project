@@ -24,7 +24,6 @@
                     <p class="muted list-result-count">
                         Tìm thấy {{ (int) ($pagination['total'] ?? count($destinations)) }} kết quả.
                     </p>
-
                     <div class="destination-grid">
                         @forelse ($destinations as $destination)
                             @include('components.destination-card', ['destination' => $destination])
@@ -89,7 +88,7 @@
                 </div>
             </div>
 
-            @component('components.destination-detail-modal')
+            @component('components.destination-detail-modal', ['destinations' => $destinations])
             @endcomponent
         </div>
     </section>

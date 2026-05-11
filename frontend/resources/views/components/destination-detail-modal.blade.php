@@ -1,7 +1,12 @@
+@php
+    $destinations = is_array($destinations ?? null) ? $destinations : [];
+@endphp
+
 <div class="destination-modal" data-destination-modal
-    data-api-endpoint="{{ rtrim(config('api.browser_endpoint'), '/') }}"
     data-rating-endpoint="{{ url('/ratings') }}"
+    data-favorites-add-endpoint="{{ url('/favorites') }}"
     data-can-rate="{{ session()->has('access_token') ? 'true' : 'false' }}"
+    data-can-favorite="{{ session()->has('access_token') ? 'true' : 'false' }}"
     data-login-url="{{ route('login') }}" hidden>
     <div class="destination-modal-backdrop" data-close-destination-modal></div>
     <div class="destination-modal-dialog panel" role="dialog" aria-modal="true"
@@ -16,6 +21,7 @@
             <p class="muted">Vui lòng chờ trong giây lát...</p>
         </div>
     </div>
+    <script type="application/json" data-destination-dataset>@json($destinations)</script>
 </div>
 
 <div class="destination-modal rating-modal" data-rating-modal hidden>

@@ -8,6 +8,7 @@
     $priceText = $destination['price']['raw_text'] ?? ($destination['price_raw_text'] ?? null);
     $openHours = $destination['open_hours']['raw_text'] ?? ($destination['open_hour'] ?? 'N/A');
     $primaryCategory = $categoryNames->first() ?? 'Điểm đến';
+    $isFavorite = (bool) ($isFavorite ?? ($destination['is_favorite'] ?? false));
 @endphp
 
 <article class="destination-card">
@@ -29,6 +30,32 @@
         <div class="destination-card-rating">
             ⭐ {{ number_format((float) ($destination['rating_avg'] ?? 0), 1) }}
         </div>
+
+        @if (!empty($destination['id']))
+            <form
+                method="POST"
+                action="{{ route('favorites.add', ['destinationId' => $destination['id']]) }}"
+                data-favorite-form
+                data-destination-id="{{ $destination['id'] }}"
+                data-favorite-add-url="{{ route('favorites.add', ['destinationId' => $destination['id']]) }}"
+                data-favorite-remove-url="{{ route('favorites.remove', ['destinationId' => $destination['id']]) }}"
+                data-favorited="{{ $isFavorite ? 'true' : 'false' }}">
+                @csrf
+                <button
+                    type="submit"
+                    class="favorite-btn"
+                    aria-label="{{ $isFavorite ? 'Xoá khỏi danh sách yêu thích' : 'Thêm vào danh sách yêu thích' }}"
+                    data-favorite>
+                    <span class="favorite-icon">♥</span>
+                    <span class="favorite-text">{{ $isFavorite ? 'Đã yêu thích · Nhấn để bỏ' : 'Thêm vào danh sách yêu thích !' }}</span>
+                </button>
+            </form>
+        @else
+            <button type="button" class="favorite-btn" aria-label="Thêm vào danh sách yêu thích" data-favorite disabled>
+                <span class="favorite-icon">♥</span>
+                <span class="favorite-text">Thêm vào danh sách yêu thích !</span>
+            </button>
+        @endif
     </div>
 
     <div class="destination-card-body">

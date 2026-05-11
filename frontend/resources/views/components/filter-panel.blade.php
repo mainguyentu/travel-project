@@ -55,11 +55,10 @@
                 <label for="sort">Sắp xếp</label>
                 <select name="sort" id="sort" class="form-control">
                     <option value="">Mặc định</option>
-                    <option value="rating_desc" @if (request('sort') === 'rating_desc') selected @endif>Đánh giá cao nhất
+                    <option value="rating" @if (request('sort') === 'rating') selected @endif>Đánh giá cao nhất
                     </option>
-                    <option value="views_desc" @if (request('sort') === 'views_desc') selected @endif>Lượt xem nhiều nhất
+                    <option value="views" @if (request('sort') === 'views') selected @endif>Lượt xem nhiều nhất
                     </option>
-                    <option value="name_asc" @if (request('sort') === 'name_asc') selected @endif>Tên A-Z</option>
                 </select>
             </div>
         </div>

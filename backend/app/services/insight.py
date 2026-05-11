@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+import statistics
 from datetime import datetime, timezone
 from typing import Any
 
@@ -99,6 +100,19 @@ NEGATIVE_WORDS = {
     "nguy hiểm",
     "thất vọng",
 }
+
+PHRASE_SENTIMENTS: dict[str, float] = {
+    "đông vui": 0.5,
+    "nhộn nhịp": 0.5,
+    "quá đông": -1.5,
+    "chen chúc": -2.0,
+    "quá tải": -2.0,
+    "vắng vẻ": 1.0,
+    "yên tĩnh": 1.0,
+    "không quá đẹp": -0.5,
+    "không đẹp": -1.0,
+    "không đáng": -1.0,
+}
 NEGATION_WORDS = {"không", "chưa", "ít", "chẳng"}
 
 INTENSIFIERS_POSITIVE: dict[str, float] = {"rất": 1.5, "cực kỳ": 1.7, "siêu": 2.0, "tuyệt vời": 2.0}
@@ -168,6 +182,15 @@ def _score_token_sentiment(token: str) -> float:
     return 0.0
 
 
+
+def _phrase_sentiment_bonus(text: str) -> float:
+    score = 0.0
+    for phrase, value in PHRASE_SENTIMENTS.items():
+        if phrase in text:
+            score += value
+    return score
+
+
 def _detect_sentiment_weight(text: str, tokens: list[str]) -> float:
     if not tokens:
         return 0.3
@@ -216,19 +239,21 @@ def _detect_sentiment_weight(text: str, tokens: list[str]) -> float:
         after = tokens[split_idx + 1 :]
         score = _compute_segment(before, " ".join(before), 1.0) + _compute_segment(after, " ".join(after), 1.5)
 
+    score += _phrase_sentiment_bonus(text)
+
     if score >= 2.5:
-        return 2.0
+        return 15.0
     if score >= 1.5:
-        return 1.5
+        return 10.0
     if score >= 0.5:
-        return 1.0
+        return 5.0
     if score <= -2.5:
-        return -2.0
+        return -15.0
     if score <= -1.5:
-        return -1.5
+        return -10.0
     if score <= -0.5:
-        return -1.0
-    return 0.3
+        return -5.0
+    return 0.0
 
 
 def _latin_ratio(text: str) -> float:
@@ -346,7 +371,7 @@ def _content_quality_factor(tokens: list[str], matched_dimension_count: int) -> 
 
 
 def _consistency_factor(rating_score: int, sentiment_weight: float) -> float:
-    if sentiment_weight == 0.3:
+    if sentiment_weight == 0.0:
         return 1.0
     if rating_score <= 2 and sentiment_weight > 0:
         return 0.5
@@ -377,19 +402,20 @@ def _review_contribution(
         return None
 
     normalized_score = (float(rating_score) / 5.0) * 100.0
-    sentiment_weight = _detect_sentiment_weight(text, tokens)
+    sentiment_adjustment = _detect_sentiment_weight(text, tokens)
+    adjusted_score = _clamp(normalized_score + sentiment_adjustment, 0.0, 100.0)
+
     quality = _content_quality_factor(tokens, matched_dimension_count=len(matched_dimensions))
-    consistency = _consistency_factor(rating_score, sentiment_weight)
+    consistency = _consistency_factor(rating_score, sentiment_adjustment)
     time_decay = _time_decay_factor(now, review_time)
 
-    # Giữ multiplier (spam/short review) chỉ ảnh hưởng numerator để tránh triệt tiêu khi dùng average weighted.
     review_weight_base = float(_clamp(quality * consistency * time_decay, 0.1, 2.0))
     review_multiplier = float(multiplier)
 
     contribution: dict[str, tuple[float, float]] = {}
     for dimension in matched_dimensions:
         contribution[dimension] = (
-            normalized_score * sentiment_weight * review_weight_base * review_multiplier,
+            adjusted_score * review_weight_base * review_multiplier,
             review_weight_base,
         )
     return contribution
@@ -402,6 +428,7 @@ def _default_cache() -> dict[str, Any]:
         "last_review_at": None,
         "last_decay_at": None,
         "cache_version": CACHE_VERSION,
+        "rating_history": [],
     }
     for dimension in DIMENSIONS:
         cache[f"sum_weighted_{dimension}"] = 0.0
@@ -633,6 +660,10 @@ class InsightService:
             cache["total_reviews"] = max(int(cache.get("total_reviews", 0) or 0) + 1, 0)
             cache["unique_reviewers"] = max(int(cache.get("unique_reviewers", 0) or 0) + 1, 0)
 
+        history = list(cache.get("rating_history", []))
+        history.append(float(new_score))
+        cache["rating_history"] = history[-100:]
+
         for dimension in DIMENSIONS:
             cache[f"sum_weight_{dimension}"] = max(float(cache.get(f"sum_weight_{dimension}", 0.0) or 0.0), 0.0)
             cache[f"sum_weighted_{dimension}"] = float(cache.get(f"sum_weighted_{dimension}", 0.0) or 0.0)
@@ -656,12 +687,27 @@ class InsightService:
             elif days > 365:
                 recency_factor = 0.9
 
-        confidence = min(1.0, (float(total_reviews) / 50.0) * diversity_factor * recency_factor)
+        rating_history = cache.get("rating_history", [])
+        variance_factor = 1.0
+
+        if len(rating_history) >= 3:
+            variance = statistics.pvariance(rating_history)
+            variance_factor = float(_clamp(1.0 - (variance / 8.0), 0.6, 1.0))
+
+        confidence = min(
+            1.0,
+            (float(total_reviews) / 50.0)
+            * diversity_factor
+            * recency_factor
+            * variance_factor,
+        )
+
         confidence_details = {
             "diversity_factor": round(diversity_factor, 3),
             "recency_factor": round(recency_factor, 3),
             "unique_reviewers": unique_reviewers,
             "total_reviews": total_reviews,
+            "variance_factor": round(variance_factor, 3),
         }
 
         snapshot = _compute_snapshot(cache)

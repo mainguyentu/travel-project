@@ -70,7 +70,7 @@ class AuthController extends Controller
 
         Session::put('user', $user);
 
-        return redirect('/profile');
+        return redirect(route('home'))->with('success', 'Đăng nhập thành công.');
     }
 
     /**
@@ -79,7 +79,7 @@ class AuthController extends Controller
     public function showRegister()
     {
         if (Session::has('access_token')) {
-            return redirect('/profile');
+            return redirect(route('profile'));
         }
         
         return view('pages.public.auth.register');
@@ -109,7 +109,7 @@ class AuthController extends Controller
                 ->withErrors($errors);
         }
 
-        return redirect('/login')->with('success', 'Đăng ký thành công. Vui lòng đăng nhập.');
+        return redirect(route('login'))->with('success', 'Đăng ký thành công. Vui lòng đăng nhập.');
     }
 
     /**
@@ -124,6 +124,6 @@ class AuthController extends Controller
 
         Session::forget(['access_token', 'refresh_token', 'user']);
         
-        return redirect('/');
+        return redirect(route('home'))->with('success', 'Đăng xuất thành công.');
     }
 }

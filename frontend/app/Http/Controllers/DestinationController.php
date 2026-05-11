@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ApiClient;
+use Illuminate\Support\Facades\Session;
 
 class DestinationController extends Controller
 {
@@ -56,6 +57,7 @@ class DestinationController extends Controller
 
         // Shuffle destinations list before rendering
         $destinations = collect($response['data'] ?? [])->shuffle()->all();
+        $destinations = $this->attachFavoriteState($destinations);
 
         return view('pages.public.destinations.index', [
             'destinations' => $destinations,
@@ -70,4 +72,37 @@ class DestinationController extends Controller
         ]);
     }
 
+    /**
+     * Attach is_favorite flag from current user's favorites.
+     *
+     * @param array<int, array<string, mixed>> $destinations
+     * @return array<int, array<string, mixed>>
+     */
+    private function attachFavoriteState(array $destinations): array
+    {
+        if ($destinations === [] || !Session::has('access_token')) {
+            return $destinations;
+        }
+
+        $favoriteResponse = $this->apiClient->get('me/favorites', ['page' => 1, 'limit' => 100]);
+        $favoriteItems = $favoriteResponse['data'] ?? [];
+
+        $favoriteIdMap = collect($favoriteItems)
+            ->pluck('id')
+            ->filter(fn ($id) => $id !== null)
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+
+        return collect($destinations)
+            ->map(function ($destination) use ($favoriteIdMap) {
+                if (!is_array($destination)) {
+                    return $destination;
+                }
+
+                $destinationId = (int) ($destination['id'] ?? 0);
+                $destination['is_favorite'] = $favoriteIdMap->has($destinationId);
+                return $destination;
+            })
+            ->all();
+    }
 }

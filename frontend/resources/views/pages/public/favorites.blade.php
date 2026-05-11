@@ -32,7 +32,7 @@
             @if (count($favorites) > 0)
                 <div class="destination-grid">
                     @foreach ($favorites as $destination)
-                        @include('components.destination-card', ['destination' => $destination])
+                        @include('components.destination-card', ['destination' => $destination, 'isFavorite' => true])
                     @endforeach
                 </div>
             @else
@@ -42,9 +42,8 @@
                 </div>
             @endif
 
-            @component('components.destination-detail-modal')
+            @component('components.destination-detail-modal', ['destinations' => $favorites])
             @endcomponent
         </div>
     </section>
 @endsection
-

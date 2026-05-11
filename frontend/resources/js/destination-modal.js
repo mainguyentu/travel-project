@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Destination Detail Modal Handler
  * Manages modal open/close, API fetching, and content rendering
  */
@@ -20,12 +20,33 @@ function initDestinationModal() {
     const ratingStars = ratingModalRoot?.querySelector('.star-rating') || null;
     const ratingCloseButtons = ratingModalRoot?.querySelectorAll('[data-close-rating-modal]') || [];
     const detailTriggers = document.querySelectorAll('[data-open-destination][data-destination-id]');
-    const apiEndpoint = (modalRoot.dataset.apiEndpoint || '').replace(/\/$/, '');
     const ratingEndpoint = (modalRoot.dataset.ratingEndpoint || '').replace(/\/$/, '');
+    const favoritesAddEndpoint = (modalRoot.dataset.favoritesAddEndpoint || '').replace(/\/$/, '');
     const canRate = modalRoot.dataset.canRate === 'true';
+    const canFavorite = modalRoot.dataset.canFavorite === 'true';
     const loginUrl = modalRoot.dataset.loginUrl || '';
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const favoriteSyncEvent = 'favorite:changed';
 
-    if (!apiEndpoint || detailTriggers.length === 0) {
+    const destinationDatasetNode = modalRoot.querySelector('[data-destination-dataset]');
+    const destinationList = (() => {
+        if (!destinationDatasetNode) {
+            return [];
+        }
+        try {
+            const parsed = JSON.parse(destinationDatasetNode.textContent || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return [];
+        }
+    })();
+    const destinationMap = new Map(
+        destinationList
+            .filter((destination) => destination && destination.id !== undefined && destination.id !== null)
+            .map((destination) => [String(destination.id), destination])
+    );
+
+    if (detailTriggers.length === 0) {
         return;
     }
 
@@ -36,17 +57,22 @@ function initDestinationModal() {
         low: 'Giá rẻ',
         medium: 'Trung bình',
         high: 'Cao cấp',
-        free: 'Miễn Phí',
+        free: 'Miễn phí',
     };
 
-    let activeRequestToken = null;
-
-    const buildDestinationDetailUrl = (destinationId) => {
-        try {
-            return new URL(`destinations/${destinationId}`, `${apiEndpoint}/`).toString();
-        } catch (_) {
-            return `${apiEndpoint}/destinations/${destinationId}`;
+    const buildFavoriteUrls = (destinationId) => {
+        const fallback = `/favorites/${destinationId}`;
+        if (!favoritesAddEndpoint) {
+            return {
+                addUrl: fallback,
+                removeUrl: fallback,
+            };
         }
+
+        return {
+            addUrl: `${favoritesAddEndpoint}/${destinationId}`,
+            removeUrl: `${favoritesAddEndpoint}/${destinationId}`,
+        };
     };
 
     const renderLoading = () => {
@@ -104,7 +130,7 @@ function initDestinationModal() {
         return destination?.open_hours?.raw_text || destination?.open_hour || 'Đang cập nhật';
     };
 
-    // Tính trạng thái mở cửa theo phút trong ngày, có xử lý khung giờ qua ngày mới (ví dụ 22:00 đến 00:00 hoặc 22:00 đến 02:00).
+    // Returns true if currently open, false if currently closed, null if unknown
     const isOpen = (destination) => {
         const openHours = destination?.open_hours?.raw_text || destination?.open_hour || null;
         if (!openHours) {
@@ -213,6 +239,10 @@ function initDestinationModal() {
                 ? `<button type="button" class="btn-secondary" data-open-rating data-destination-id="${destination.id}" data-destination-name="${name}">Đánh giá</button>`
                 : (safeLoginUrl ? `<a href="${safeLoginUrl}" class="btn-secondary">Đăng nhập để đánh giá</a>` : ''))
             : '';
+        const isFavorite = destination?.is_favorite === true;
+        const favoriteIndicatorLabel = isFavorite
+            ? 'Đã yêu thích · Nhấn để bỏ'
+            : 'Thêm vào danh sách yêu thích !';
 
         modalTitle.textContent = destination.name || 'Chi tiết điểm đến';
 
@@ -220,32 +250,50 @@ function initDestinationModal() {
             <section class="destination-modal-hero">
                 ${image ? `<img src="${image}" alt="${name}">` : '<div class="destination-modal-image-placeholder">No image</div>'}
                 <div class="destination-modal-hero-overlay" aria-hidden="true"></div>
+                <div
+                    class="destination-modal-favorite-wrap"
+                    data-favorite-form
+                    data-favorited="${isFavorite ? 'true' : 'false'}"
+                >
+                    <button
+                        type="button"
+                        class="favorite-btn"
+                        data-favorite
+                        data-modal-favorite-indicator
+                        data-destination-id="${destination.id}"
+                        aria-label="${isFavorite ? 'Xoá khỏi danh sách yêu thích' : 'Thêm vào danh sách yêu thích'}"
+                        title="${favoriteIndicatorLabel}"
+                    >
+                        <span class="favorite-icon">♥</span>
+                        <span class="favorite-text">${favoriteIndicatorLabel}</span>
+                    </button>
+                </div>
                 <div class="destination-modal-hero-content">
                     <span class="destination-pill">${categoryBadge}</span>
                     <h3>${name}</h3>
                     <p class="destination-modal-hero-address">${address}</p>
                     <div class="destination-modal-status-row">
                         <span class="destination-modal-status ${openStatusClass}">${openStatusText}</span>
-                        <span class="destination-modal-hours">${openHours}${open_hour_close ? ` · ${open_hour_close}` : ''}</span>
+                        <span class="destination-modal-hours">${openHours}${open_hour_close ? ` - ${open_hour_close}` : ''}</span>
                     </div>
                 </div>
             </section>
 
-            <section class="destination-modal-meta-grid" aria-label="Thông tin nhanh">
+            <section class="destination-modal-meta-grid" aria-label="Th?ng tin nhanh">
                 <article class="public-card destination-modal-meta-card">
                     <strong>Mức giá</strong>
                     ${price_raw_text
                         ?`<p class="muted">${price_raw_text}</p>`
-                        :`<p class=""muted>Hiện chưa có thông tin giá</p>`
+                        :`<p class="muted">Hiện chưa có thông tin giá</p>`
                      }
                 </article>
                 <article class="public-card destination-modal-meta-card">
                     <strong>Đánh giá</strong>
-                    <p class="muted">${rating}⭐</p>
+                    <p class="muted">${rating}</p>
                 </article>
                 <article class="public-card destination-modal-meta-card">
                     <strong>Lượt yêu thích</strong>
-                    <p class="muted">${favoriteCount}</p>
+                    <p class="muted" data-modal-favorite-count>${favoriteCount}</p>
                 </article>
                 <article class="public-card destination-modal-meta-card">
                     <strong>Lượt xem</strong>
@@ -328,57 +376,70 @@ function initDestinationModal() {
         }
     };
 
-    const openModal = async (destinationId) => {
-        const requestToken = Symbol('destination-request');
-        activeRequestToken = requestToken;
-
+    const openModal = (destinationId) => {
         modalRoot.hidden = false;
         document.body.classList.add('modal-open');
         renderLoading();
 
         dialog.focus();
 
-        try {
-            const requestUrl = buildDestinationDetailUrl(destinationId);
-            const response = await fetch(requestUrl, {
-                mode: 'cors',
-                headers: {
-                    Accept: 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP_${response.status} (${requestUrl})`);
-            }
-
-            const payload = await response.json();
-            if (activeRequestToken !== requestToken) {
-                return;
-            }
-
-            if (!payload?.data) {
-                renderError('Dữ liệu chi tiết không hợp lệ. Vui lòng thử lại.');
-                return;
-            }
-
-            renderDestination(payload.data);
-        } catch (error) {
-            if (activeRequestToken !== requestToken) {
-                return;
-            }
-            renderError('Không tải được dữ liệu điểm đến. Vui lòng thử lại sau.');
-            console.error('Destination detail error:', {
-                error,
-                apiEndpoint,
-                browserOrigin: window.location.origin,
-            });
+        const destination = destinationMap.get(String(destinationId));
+        if (!destination) {
+            renderError('Không tìm thấy dữ liệu chi tiết cho điểm đến này.');
+            return;
         }
+
+        renderDestination(destination);
     };
 
     const closeModal = () => {
         modalRoot.hidden = true;
         document.body.classList.remove('modal-open');
-        activeRequestToken = null;
+    };
+
+    const syncModalFavoriteUi = (destinationId, isFavorite) => {
+        if (!destinationId) {
+            return;
+        }
+
+        const favoriteIndicator = modalContent.querySelector(
+            `[data-modal-favorite-indicator][data-destination-id="${CSS.escape(String(destinationId))}"]`
+        );
+        if (!favoriteIndicator) {
+            return;
+        }
+
+        const previousState = favoriteIndicator.dataset.favorited === 'true';
+        favoriteIndicator.dataset.favorited = isFavorite ? 'true' : 'false';
+
+        const favoriteWrap = favoriteIndicator.closest('[data-favorite-form]');
+        if (favoriteWrap) {
+            favoriteWrap.dataset.favorited = isFavorite ? 'true' : 'false';
+        }
+        favoriteIndicator.setAttribute(
+            'aria-label',
+            isFavorite ? 'Xoá khỏi danh sách yêu thích' : 'Thêm vào danh sách yêu thích'
+        );
+        favoriteIndicator.setAttribute(
+            'title',
+            isFavorite ? 'Đã yêu thích · Nhấn để bỏ' : 'Thêm vào danh sách yêu thích !'
+        );
+
+        const favoriteText = favoriteIndicator.querySelector('.favorite-text');
+        if (favoriteText) {
+            favoriteText.textContent = isFavorite
+                ? 'Đã yêu thích · Nhấn để bỏ'
+                : 'Thêm vào danh sách yêu thích !';
+        }
+
+        const favoriteCountNode = modalContent.querySelector('[data-modal-favorite-count]');
+        if (favoriteCountNode && previousState !== isFavorite) {
+            const currentCount = Number(favoriteCountNode.textContent || 0);
+            const nextCount = isFavorite
+                ? currentCount + 1
+                : Math.max(0, currentCount - 1);
+            favoriteCountNode.textContent = String(nextCount);
+        }
     };
 
     closeButtons.forEach((element) => {
@@ -515,6 +576,75 @@ function initDestinationModal() {
     }
 
     modalContent.addEventListener('click', (event) => {
+        const favoriteToggle = event.target.closest('[data-modal-favorite-indicator]');
+        if (favoriteToggle) {
+            event.preventDefault();
+            if (!canFavorite) {
+                if (loginUrl) {
+                    window.location.href = loginUrl;
+                }
+                return;
+            }
+
+            const destinationId = favoriteToggle.dataset.destinationId;
+            if (!destinationId) {
+                return;
+            }
+
+            const currentlyFavorite = favoriteToggle.dataset.favorited === 'true';
+            const { addUrl, removeUrl } = buildFavoriteUrls(destinationId);
+            const payload = new FormData();
+            payload.append('_token', csrfToken);
+            if (currentlyFavorite) {
+                payload.append('_method', 'DELETE');
+            }
+
+            favoriteToggle.disabled = true;
+            fetch(currentlyFavorite ? removeUrl : addUrl, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: payload,
+                credentials: 'same-origin',
+                redirect: 'follow',
+            })
+                .then(async (response) => {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (response.redirected && !contentType.includes('application/json')) {
+                        window.location.href = response.url;
+                        return null;
+                    }
+
+                    const result = contentType.includes('application/json')
+                        ? await response.json()
+                        : null;
+                    if (!response.ok || !result || result.success === false) {
+                        throw new Error(result?.error || 'Không thể cập nhật yêu thích.');
+                    }
+                    return result;
+                })
+                .then((result) => {
+                    if (!result) {
+                        return;
+                    }
+                    const nextFavorite = !currentlyFavorite;
+                    syncModalFavoriteUi(destinationId, nextFavorite);
+                    document.dispatchEvent(
+                        new CustomEvent(favoriteSyncEvent, {
+                            detail: { destinationId, isFavorite: nextFavorite },
+                        })
+                    );
+                })
+                .catch(() => undefined)
+                .finally(() => {
+                    favoriteToggle.disabled = false;
+                });
+
+            return;
+        }
+
         const target = event.target.closest('[data-open-rating]');
         if (!target) {
             return;
@@ -532,6 +662,12 @@ function initDestinationModal() {
             return;
         }
         openRatingModal(destinationId, destinationName);
+    });
+
+    document.addEventListener(favoriteSyncEvent, (event) => {
+        const destinationId = event?.detail?.destinationId;
+        const isFavorite = event?.detail?.isFavorite === true;
+        syncModalFavoriteUi(destinationId, isFavorite);
     });
 
     document.addEventListener('keydown', (event) => {
@@ -554,3 +690,4 @@ if (document.readyState === 'loading') {
 } else {
     initDestinationModal();
 }
+

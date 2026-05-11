@@ -202,4 +202,108 @@ document.addEventListener("DOMContentLoaded", () => {
             mobileToggle?.focus();
         }
     });
+
+    const csrfToken =
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    const favoriteSyncEvent = "favorite:changed";
+
+    const setFavoriteUi = (form, isFavorite) => {
+        if (!form) {
+            return;
+        }
+
+        form.dataset.favorited = isFavorite ? "true" : "false";
+        const button = form.querySelector("[data-favorite]");
+        const text = form.querySelector(".favorite-text");
+        if (button) {
+            button.setAttribute(
+                "aria-label",
+                isFavorite ? "Xoá khỏi danh sách yêu thích" : "Thêm vào danh sách yêu thích",
+            );
+        }
+        if (text) {
+            text.textContent = isFavorite
+                ? "Đã yêu thích · Nhấn để bỏ"
+                : "Thêm vào danh sách yêu thích !";
+        }
+    };
+
+    const syncFavoriteForms = (destinationId, isFavorite) => {
+        if (!destinationId) {
+            return;
+        }
+        document
+            .querySelectorAll(
+                `[data-favorite-form][data-destination-id="${CSS.escape(String(destinationId))}"]`,
+            )
+            .forEach((form) => setFavoriteUi(form, isFavorite));
+    };
+
+    const toggleFavorite = async (form) => {
+        const currentlyFavorite = form.dataset.favorited === "true";
+        const addUrl = form.dataset.favoriteAddUrl;
+        const removeUrl = form.dataset.favoriteRemoveUrl;
+        const button = form.querySelector("[data-favorite]");
+        const endpoint = currentlyFavorite ? removeUrl : addUrl;
+
+        if (!endpoint || !button) {
+            return;
+        }
+
+        const payload = new FormData();
+        payload.append("_token", csrfToken);
+        if (currentlyFavorite) {
+            payload.append("_method", "DELETE");
+        }
+
+        button.disabled = true;
+        try {
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: payload,
+                credentials: "same-origin",
+                redirect: "follow",
+            });
+
+            const contentType = response.headers.get("content-type") || "";
+            if (response.redirected && !contentType.includes("application/json")) {
+                window.location.href = response.url;
+                return;
+            }
+
+            const result = contentType.includes("application/json")
+                ? await response.json()
+                : null;
+
+            if (!response.ok || !result || result.success === false) {
+                throw new Error(result?.error || "Không thể cập nhật yêu thích.");
+            }
+
+            const destinationId = form.dataset.destinationId;
+            const nextFavorite = !currentlyFavorite;
+            setFavoriteUi(form, nextFavorite);
+            syncFavoriteForms(destinationId, nextFavorite);
+            document.dispatchEvent(
+                new CustomEvent(favoriteSyncEvent, {
+                    detail: { destinationId, isFavorite: nextFavorite },
+                }),
+            );
+        } catch (_) {
+            return;
+        } finally {
+            button.disabled = false;
+        }
+    };
+
+    document.querySelectorAll("[data-favorite-form]").forEach((form) => {
+        setFavoriteUi(form, form.dataset.favorited === "true");
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            toggleFavorite(form);
+        });
+    });
 });

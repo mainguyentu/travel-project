@@ -31,6 +31,7 @@
         <span class="hero-scroll" aria-hidden="true"></span>
     </section>
 
+
     @if ($homeError)
         <section class="section-pad">
             <div class="site-container">
@@ -48,12 +49,12 @@
             <div class="section-heading">
                 <h2>Điểm đến <span class="text-gradient">nổi bật</span></h2>
                 <p>
-                    Khám phá những địa danh du lịch nổi tiếng và hấp dẫn nhất tại Đà Nẵng
+                    Khám phá những điểm đến đang được yêu thích nhất tại Đà Nẵng.
                 </p>
             </div>
 
             <div class="destination-grid">
-                @forelse ($featured as $destination)
+                @forelse ($destinations as $destination)
                     @include('components.destination-card', ['destination' => $destination])
                 @empty
                     @if (!$homeError)
@@ -70,7 +71,7 @@
                 @endforelse
             </div>
 
-            @component('components.destination-detail-modal')
+            @component('components.destination-detail-modal', ['destinations' => $destinations])
             @endcomponent
         </div>
     </section>
