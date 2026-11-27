@@ -1,43 +1,49 @@
-﻿from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
-import jwt
-from passlib.context import CryptContext
-from .config import settings
+from datetime import datetime, timedelta, timezone
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import jwt
+import bcrypt
+import uuid
+
+from .config import settings
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        return False
 
 
-def create_access_token(subject: str, role: str, status: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_ttl_min)
-    payload = {
-        "sub": subject,
-        "role": role,
-        "status": status,
-        "iss": settings.jwt_issuer,
-        "exp": expire,
+def _encode(payload: dict) -> str:
+    payload.setdefault("jti", str(uuid.uuid4()))
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def create_access_token(user_id: int) -> str:
+    now = datetime.now(timezone.utc)
+    return _encode({
+        "sub": str(user_id),
         "type": "access",
-    }
-    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
-
-
-def create_refresh_token(subject: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_ttl_days)
-    payload = {
-        "sub": subject,
         "iss": settings.jwt_issuer,
-        "exp": expire,
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.jwt_access_ttl_min),
+    })
+
+
+def create_refresh_token(user_id: int) -> str:
+    now = datetime.now(timezone.utc)
+    return _encode({
+        "sub": str(user_id),
         "type": "refresh",
-    }
-    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+        "iss": settings.jwt_issuer,
+        "iat": now,
+        "exp": now + timedelta(days=settings.jwt_refresh_ttl_days),
+    })
 
 
-def decode_token(token: str) -> Dict[str, Any]:
+def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"], issuer=settings.jwt_issuer)

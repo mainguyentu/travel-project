@@ -1,28 +1,7 @@
-# Frontend Changelog
+# Release Notes
 
-Lịch sử thay đổi cho phần frontend của dự án `travel-project`.
+## [Unreleased](https://github.com/laravel/laravel/compare/v11.0.0...11.x)
 
-Ghi chú:
+## [v11.0.0 (2023-02-17)](https://github.com/laravel/laravel/compare/v10.3.2...v11.0.0)
 
-- Changelog này theo ngữ cảnh sản phẩm, không theo skeleton gốc của Laravel.
-- Release notes tự động ở mức repository dùng workflow: `.github/workflows/release-notes.yml`.
-
-## [Unreleased]
-
-- Đồng bộ tài liệu frontend với runtime hiện tại (popup detail flow, auth/session flow, link docs hệ thống).
-- Chuẩn hóa mô tả tích hợp với API Gateway (`http://localhost:8080`) và chạy local (`http://127.0.0.1:8000`).
-
-## [2026-04-02]
-
-- Thay thế toàn bộ changelog skeleton của Laravel bằng changelog theo sản phẩm thực tế.
-- Liên kết rõ với release workflow tại repository root.
-
-## [2026-04-01]
-
-- Cập nhật README frontend với luồng public/user/admin theo codebase.
-- Đồng bộ tài liệu liên quan backend (`API_REFERENCE`, `ARCHITECTURE`, `DEPLOYMENT_RUNBOOK`).
-
-## [2026-03-31]
-
-- Hoàn thiện nhóm test tính năng frontend (`PublicFlowTest`, `AuthFlowTest`, `AdminFlowTest`, `MiddlewareAccessTest`).
-- Cố định baseline build/test trong quality pipeline.
+Laravel 11 includes a variety of changes to the application skeleton. Please consult the diff to see what's new.

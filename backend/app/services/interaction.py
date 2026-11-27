@@ -1,76 +1,69 @@
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
 from app.core.errors import AppError
-from app.repositories.interaction import InteractionRepository
-from app.core.cache import invalidate_admin_stats_cache, invalidate_public_landing_cache
-from app.core.config import settings
-from app.clients.internal_http import internal_request_json
+from app.db.models import Destination, Favorite, Rating
 
 
 class InteractionService:
     def __init__(self, db: Session):
         self.db = db
-        self.interactions = InteractionRepository(db)
 
-    def favorite(self, user_id: int, destination_id: int):
-        if settings.service_profile == "monolith":
-            from app.repositories.destinations import DestinationRepository
+    def _active_destination(self, destination_id: int) -> Destination:
+        dest = self.db.get(Destination, destination_id)
+        if not dest or dest.status != "active":
+            raise AppError("NOT_FOUND", "Destination not found", 404)
+        return dest
 
-            destination = DestinationRepository(self.db).get_by_id(destination_id)
-            if not destination or destination.status != "active":
-                raise AppError("NOT_FOUND", "Destination not found", status_code=404)
-        else:
-            internal_request_json(
-                "GET",
-                base_url=settings.destination_service_url,
-                path=f"{settings.api_prefix}/internal/destinations/{destination_id}/active",
-            )
-        fav = self.interactions.upsert_favorite(user_id, destination_id)
-        invalidate_admin_stats_cache()
-        invalidate_public_landing_cache()
+    def favorite(self, user_id: int, destination_id: int) -> Favorite:
+        self._active_destination(destination_id)
+        fav = self.db.get(Favorite, (user_id, destination_id))
+        if fav:
+            return fav
+        fav = Favorite(user_id=user_id, destination_id=destination_id)
+        self.db.add(fav)
+        self.db.flush()
         return fav
 
-    def unfavorite(self, user_id: int, destination_id: int):
-        self.interactions.soft_delete_favorite(user_id, destination_id)
-        invalidate_admin_stats_cache()
-        invalidate_public_landing_cache()
+    def unfavorite(self, user_id: int, destination_id: int) -> None:
+        fav = self.db.get(Favorite, (user_id, destination_id))
+        if fav:
+            self.db.delete(fav)
+            self.db.flush()
 
-    def upsert_rating(self, user_id: int, destination_id: int, rating_score: int, comment: str | None):
-        if settings.service_profile == "monolith":
-            from app.repositories.destinations import DestinationRepository
-            from app.core.cache import invalidate_destination_cache
-            from app.services.insight import InsightService
+    def list_favorite_ids(self, user_id: int, offset: int, limit: int) -> list[int]:
+        rows = self.db.scalars(
+            select(Favorite.destination_id)
+            .where(Favorite.user_id == user_id)
+            .order_by(Favorite.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        return list(rows)
 
-            destination = DestinationRepository(self.db).get_by_id(destination_id)
-            if not destination or destination.status != "active":
-                raise AppError("NOT_FOUND", "Destination not found", status_code=404)
-            old_rating = self.interactions.get_rating(user_id, destination_id)
-            old_score = old_rating.rating_score if old_rating else None
-            old_comment = old_rating.comment if old_rating else None
+    def get_rating(self, user_id: int, destination_id: int) -> Rating | None:
+        return self.db.get(Rating, (user_id, destination_id))
 
-            rating = self.interactions.upsert_rating(user_id, destination_id, rating_score, comment)
-            InsightService(self.db).apply_rating_update(
-                destination_id=destination_id,
-                new_score=rating_score,
-                new_comment=comment,
-                old_score=old_score,
-                old_comment=old_comment,
-                new_review_time=getattr(rating, "updated_at", None),
-                old_review_time=getattr(old_rating, "updated_at", None) if old_rating else None,
-                is_new_rating=old_rating is None,
-                reviewer_user_id=user_id,
-            )
-            DestinationRepository(self.db).recompute_rating_avg(destination_id)
-            invalidate_destination_cache(destination_id)
+    def upsert_rating(self, user_id: int, destination_id: int, score: int, comment: str | None) -> Rating:
+        self._active_destination(destination_id)
+        rating = self.db.get(Rating, (user_id, destination_id))
+        if rating:
+            rating.rating_score = score
+            rating.comment = comment
         else:
-            internal_request_json(
-                "GET",
-                base_url=settings.destination_service_url,
-                path=f"{settings.api_prefix}/internal/destinations/{destination_id}/active",
-            )
-            rating = self.interactions.upsert_rating(user_id, destination_id, rating_score, comment)
-        invalidate_admin_stats_cache()
-        invalidate_public_landing_cache()
+            rating = Rating(user_id=user_id, destination_id=destination_id, rating_score=score, comment=comment)
+            self.db.add(rating)
+        self.db.flush()
+        self._recompute_avg(destination_id)
         return rating
 
-    def get_rating(self, user_id: int, destination_id: int):
-        return self.interactions.get_rating(user_id, destination_id)
+    def _recompute_avg(self, destination_id: int) -> None:
+        row = self.db.execute(
+            select(func.count(Rating.rating_score), func.coalesce(func.avg(Rating.rating_score), 0)).where(
+                Rating.destination_id == destination_id
+            )
+        ).one()
+        count, avg = int(row[0] or 0), float(row[1] or 0)
+        dest = self.db.get(Destination, destination_id)
+        dest.rating_avg = round(avg, 2)
+        self.db.flush()

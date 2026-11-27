@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
@@ -12,6 +12,14 @@ class ExampleTest extends TestCase
      */
     public function test_the_application_returns_a_successful_response(): void
     {
+        Http::fake([
+            '*/public/landing' => Http::response([
+                'success' => true,
+                'data' => ['highlights' => [], 'categories' => [], 'top_ratings' => [], 'top_favorites' => []],
+                'meta' => [],
+            ], 200),
+        ]);
+
         $response = $this->get('/');
 
         $response->assertStatus(200);

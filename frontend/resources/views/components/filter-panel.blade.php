@@ -1,67 +1,27 @@
-<div class="filter-panel filter-panel--horizontal">
-    @php
-        $selectedPriceLevel = (string) request('price_level', '');
-    @endphp
-
-    <form method="GET" action="{{ route('destinations.index') }}" id="filterForm" class="filter-panel-form">
-        <div class="filter-panel-row filter-panel-row--top">
-            <div class="filter-group filter-group--search">
-                <label for="search">Từ khóa</label>
-                <input type="text" name="keyword" id="search" class="form-control" placeholder="Tên địa điểm..."
-                    value="{{ request('keyword', request('search')) }}">
-            </div>
-
-            <div class="filter-group">
-                <label for="priceLevel">Mức giá</label>
-                <select name="price_level" id="priceLevel" class="form-control">
-                    <option value="">Tất cả</option>
-                    <option value="low" @selected($selectedPriceLevel === 'low')>$ - Tiết kiệm</option>
-                    <option value="medium" @selected($selectedPriceLevel === 'medium')>$$ - Vừa phải</option>
-                    <option value="high" @selected($selectedPriceLevel === 'high')>$$$ - Cao cấp</option>
-                </select>
-            </div>
-
-            <div class="filter-buttons">
-                <button type="submit" class="btn btn-primary">Áp dụng</button>
-                <a href="{{ route('destinations.index') }}" class="btn btn-secondary">Xóa bộ lọc</a>
-            </div>
-        </div>
-
-        <div class="filter-panel-row filter-panel-row--bottom">
-            <div class="filter-group filter-group--category">
-                <label for="category">Danh mục</label>
-                <select name="category_slug" id="category" class="form-control">
-                    <option value="">Tất cả</option>
-                    @forelse ($categories ?? [] as $cat)
-                        <option value="{{ $cat['slug'] ?? '' }}" @if ((request('category_slug') ?? request('category')) == ($cat['slug'] ?? '')) selected @endif>
-                            {{ ucfirst($cat['name']) }}
-                        </option>
-                    @empty
-                    @endforelse
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label for="rating">Đánh giá tối thiểu</label>
-                <select name="rating_min" id="rating" class="form-control">
-                    <option value="">Tất cả</option>
-                    <option value="4.5" @if ((string) (request('rating_min') ?? request('rating')) === '4.5') selected @endif>⭐ 4.5 trở lên</option>
-                    <option value="4" @if ((string) (request('rating_min') ?? request('rating')) === '4') selected @endif>⭐ 4 trở lên</option>
-                    <option value="3.5" @if ((string) (request('rating_min') ?? request('rating')) === '3.5') selected @endif>⭐ 3.5 trở lên</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label for="sort">Sắp xếp</label>
-                <select name="sort" id="sort" class="form-control">
-                    <option value="">Mặc định</option>
-                    <option value="rating_desc" @if (request('sort') === 'rating_desc') selected @endif>Đánh giá cao nhất
-                    </option>
-                    <option value="views_desc" @if (request('sort') === 'views_desc') selected @endif>Lượt xem nhiều nhất
-                    </option>
-                    <option value="name_asc" @if (request('sort') === 'name_asc') selected @endif>Tên A-Z</option>
-                </select>
-            </div>
-        </div>
-    </form>
-</div>
+@props(['filters' => [], 'query' => []])
+<form method="GET" action="{{ route('destinations.index') }}" class="filters" aria-label="Lọc điểm đến">
+    <label class="sr-only" for="f-cat">Thể loại</label>
+    <select id="f-cat" name="category_slug">
+        <option value="">Tất cả thể loại</option>
+        @foreach ($filters as $c)
+            <option value="{{ $c['slug'] }}" @selected(($query['category_slug'] ?? '') === $c['slug'])>{{ $c['name'] }}</option>
+        @endforeach
+    </select>
+    <label class="sr-only" for="f-price">Mức giá</label>
+    <select id="f-price" name="price_level">
+        <option value="">Mọi mức giá</option>
+        @foreach (['free', 'low', 'medium', 'high'] as $p)
+            <option value="{{ $p }}" @selected(($query['price_level'] ?? '') === $p)>{{ $p }}</option>
+        @endforeach
+    </select>
+    <label class="sr-only" for="f-kw">Từ khóa</label>
+    <input id="f-kw" type="text" name="keyword" placeholder="Từ khóa…" value="{{ $query['keyword'] ?? '' }}">
+    <label class="sr-only" for="f-sort">Sắp xếp</label>
+    <select id="f-sort" name="sort">
+        <option value="">Mới nhất</option>
+        <option value="rating" @selected(($query['sort'] ?? '') === 'rating')>Rating cao</option>
+        <option value="views" @selected(($query['sort'] ?? '') === 'views')>Xem nhiều</option>
+        <option value="name" @selected(($query['sort'] ?? '') === 'name')>Tên A–Z</option>
+    </select>
+    <button type="submit">Lọc</button>
+</form>

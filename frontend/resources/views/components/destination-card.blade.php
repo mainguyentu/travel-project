@@ -1,64 +1,34 @@
+@props(['destination'])
 @php
-    $primaryImage = $destination['img_url'] ?? null;
-    if (!$primaryImage && is_array($destination['img_urls'] ?? null)) {
-        $primaryImage = collect($destination['img_urls'])->first();
-    }
-
-    $categoryNames = collect($destination['categories'] ?? [])->pluck('name')->filter()->values();
-    $priceText = $destination['price']['raw_text'] ?? ($destination['price_raw_text'] ?? null);
-    $openHours = $destination['open_hours']['raw_text'] ?? ($destination['open_hour'] ?? 'N/A');
-    $primaryCategory = $categoryNames->first() ?? 'Điểm đến';
+    $img = $destination['img_url'] ?? null;
+    $initial = mb_substr($destination['name'] ?? '?', 0, 1);
 @endphp
-
-<article class="destination-card">
-    <div class="destination-card-media">
-        @if ($primaryImage)
-            <img src="{{ $primaryImage }}" alt="{{ $destination['name'] }}">
+<article class="card">
+    <div class="card-img">
+        @if ($img)
+            <img src="{{ $img }}" alt="{{ $destination['name'] ?? '' }}" loading="lazy">
         @else
-            <div class="card-image-placeholder">
-                <span>No image</span>
-            </div>
+            <div class="ph">{{ $initial }}</div>
         @endif
-
-        <div class="destination-card-overlay"></div>
-
-        <div class="destination-card-top">
-            <span class="destination-card-chip">{{ ucfirst($primaryCategory) }}</span>
-        </div>
-
-        <div class="destination-card-rating">
-            ⭐ {{ number_format((float) ($destination['rating_avg'] ?? 0), 1) }}
-        </div>
+        <span class="rating-badge">★ {{ $destination['rating_avg'] ?? 0 }}</span>
     </div>
-
-    <div class="destination-card-body">
-
-        <h3 class="destination-card-title">
-            {{ $destination['name'] }}
-        </h3>
-
-        <div class="destination-card-meta">
-            @if ($priceText)
-                <span class="meta-pill meta-pill-price">{{ $priceText }}</span>
-            @endif
-            <span class="meta-pill">⏱ {{ Str::limit($openHours, 24) }}</span>
-        </div>
-
-        <p class="destination-card-description">
-            {{ Str::limit($destination['description'] ?? 'Chưa có mô tả', 120) }}
-        </p>
-
-        <div class="destination-card-footer">
-            <div class="card-action-row">
-                <button
-                    type="button"
-                    class="quick-view-btn"
-                    data-open-destination
-                    data-destination-id="{{ $destination['id'] }}"
-                    aria-label="Chi tiết {{ $destination['name'] }}">
-                    Xem chi tiết <span class="arrow">→</span>
-                </button>
-            </div>
+    <div class="card-body">
+        <h3>{{ $destination['name'] ?? '' }}</h3>
+        <p class="muted">{{ $destination['address'] ?? '' }}</p>
+        @if (! empty($destination['description']))
+            <p class="muted">{{ \Illuminate\Support\Str::limit($destination['description'], 90) }}</p>
+        @endif
+        <div class="card-meta">
+            <span class="chip">{{ $destination['price_level'] ?? '' }} · {{ $destination['view_count'] ?? 0 }} lượt xem</span>
+            <span class="card-actions">
+                <button type="button" class="link-btn" data-detail="{{ $destination['id'] ?? '' }}">Xem chi tiết →</button>
+                @if (session('access_token'))
+                    <form method="POST" action="{{ route('favorites.add', ['id' => $destination['id'] ?? 0]) }}" class="inline-form">
+                        @csrf
+                        <button type="submit" class="link-btn">♥ Yêu thích</button>
+                    </form>
+                @endif
+            </span>
         </div>
     </div>
 </article>

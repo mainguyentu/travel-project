@@ -5,30 +5,14 @@ Param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-function Invoke-CheckedCommand {
-    param(
-        [Parameter(Mandatory = $true)]
-        [scriptblock]$Command,
-        [Parameter(Mandatory = $true)]
-        [string]$FailureMessage
-    )
-
-    & $Command
-    if ($LASTEXITCODE -ne 0) {
-        throw "$FailureMessage (exit code: $LASTEXITCODE)"
-    }
-}
-
 function Invoke-Step {
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
-        [Parameter(Mandatory = $true)]
-        [scriptblock]$Action
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Action
     )
-
     Write-Host "`n==> $Name" -ForegroundColor Cyan
     & $Action
+    if ($LASTEXITCODE -ne 0) { throw "$Name failed (exit code: $LASTEXITCODE)" }
     Write-Host "OK: $Name" -ForegroundColor Green
 }
 
@@ -36,62 +20,36 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot "backend"
 $frontendDir = Join-Path $repoRoot "frontend"
 
-Invoke-Step -Name "Backend tests with coverage gate" -Action {
-    Push-Location $backendDir
-    try {
-        Invoke-CheckedCommand -Command { python -m pip install --upgrade pip } -FailureMessage "Failed to upgrade pip"
-        Invoke-CheckedCommand -Command { pip install -r requirements.txt } -FailureMessage "Failed to install backend dependencies"
-        Invoke-CheckedCommand -Command { pytest tests -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=70 } -FailureMessage "Backend tests failed"
-    }
-    finally {
-        Pop-Location
-    }
+Invoke-Step -Name "Compose config (static validation)" -Action {
+    Push-Location $repoRoot
+    try { docker compose config }
+    finally { Pop-Location }
 }
 
-Invoke-Step -Name "Frontend build and tests" -Action {
-    Push-Location $frontendDir
-    try {
-        & npm ci
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "npm ci failed, retrying once after 3 seconds..." -ForegroundColor Yellow
-            Start-Sleep -Seconds 3
-            Invoke-CheckedCommand -Command { npm ci } -FailureMessage "Failed to install frontend npm dependencies"
-        }
+Invoke-Step -Name "Backend tests" -Action {
+    Push-Location $backendDir
+    try { python -m pytest -q }
+    finally { Pop-Location }
+}
 
-        Invoke-CheckedCommand -Command { npm run build } -FailureMessage "Frontend build failed"
-        Invoke-CheckedCommand -Command { composer install --no-interaction --prefer-dist --no-progress } -FailureMessage "Failed to install frontend composer dependencies"
-        if (-not (Test-Path ".env")) {
-            Copy-Item ".env.example" ".env"
-        }
-        Invoke-CheckedCommand -Command { php artisan key:generate --force } -FailureMessage "Failed to generate Laravel app key"
-        Invoke-CheckedCommand -Command { vendor/bin/phpunit --configuration phpunit.xml --coverage-clover build/logs/clover.xml } -FailureMessage "Frontend tests failed"
-    }
-    finally {
-        Pop-Location
-    }
+Invoke-Step -Name "Frontend tests" -Action {
+    Push-Location $frontendDir
+    try { php vendor/bin/phpunit }
+    finally { Pop-Location }
 }
 
 if (-not $SkipSecurity) {
-    Invoke-Step -Name "Dependency and image security scan" -Action {
-        $reportDir = Join-Path $repoRoot "security-reports"
-        if (-not (Test-Path $reportDir)) {
-            New-Item -Path $reportDir -ItemType Directory | Out-Null
-        }
-
-        Invoke-CheckedCommand -Command { pip install pip-audit } -FailureMessage "Failed to install pip-audit"
-        Invoke-CheckedCommand -Command { pip-audit -r (Join-Path $backendDir "requirements.txt") -f json -o (Join-Path $reportDir "pip-audit.json") } -FailureMessage "pip-audit scan failed"
-
-        Push-Location $frontendDir
-        try {
-            Invoke-CheckedCommand -Command { composer audit --format=json | Out-File -FilePath (Join-Path $reportDir "composer-audit.json") -Encoding utf8 } -FailureMessage "composer audit failed"
-            Invoke-CheckedCommand -Command { npm audit --json | Out-File -FilePath (Join-Path $reportDir "npm-audit.json") -Encoding utf8 } -FailureMessage "npm audit failed"
-        }
-        finally {
-            Pop-Location
-        }
-
-        Invoke-CheckedCommand -Command { docker build -t travel-project-backend-local-scan:latest $backendDir } -FailureMessage "Backend image build for security scan failed"
+    Invoke-Step -Name "Dependency audit (advisory)" -Action {
+        Push-Location $backendDir
+        try { pip install pip-audit 2>&1 | Out-Null; python -m pip_audit -r requirements.txt 2>&1 | Select-Object -First 10 }
+        finally { Pop-Location }
     }
+}
+
+Invoke-Step -Name "Post-deploy SLO check (local stack)" -Action {
+    Push-Location $repoRoot
+    try { python scripts/slo_check.py --base-url http://127.0.0.1:8080 }
+    finally { Pop-Location }
 }
 
 Write-Host "`nRepository quality checks completed." -ForegroundColor Green

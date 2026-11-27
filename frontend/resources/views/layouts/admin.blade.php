@@ -1,37 +1,35 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="vi" data-theme="light">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('page-title') - Admin</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', 'Admin — Alats Travel')</title>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <script>
+        try {
+            var t = localStorage.getItem('alats-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    </script>
 </head>
-<body class="admin-layout">
-    <div class="admin-wrapper">
-        <!-- Sidebar Navigation -->
-        @include('components.admin-sidebar')
-
-        <!-- Main Content -->
-        <section class="admin-content">
-            <!-- Topbar -->
-            @include('components.admin-topbar')
-
-            <!-- Page Content -->
-            <div class="admin-page">
-                @if ($errors->any())
-                    @include('components.alert', ['type' => 'danger', 'title' => 'Lỗi', 'messages' => $errors->all()])
-                @endif
-
-                @if (session('success'))
-                    @include('components.alert', ['type' => 'success', 'title' => 'Thành công', 'message' => session('success')])
-                @endif
-
-                @yield('content')
-            </div>
-        </section>
+<body class="admin">
+    <x-admin-topbar />
+    <div class="admin-shell">
+        <x-admin-sidebar />
+        <main class="admin-main">
+            @if (session('status') || session('error'))
+                <x-alert type="{{ session('error') ? 'error' : 'success' }}" message="{{ session('error') ?? session('status') }}" />
+            @endif
+            @yield('content')
+        </main>
     </div>
-
-    @stack('scripts')
+    <script>
+        function toggleTheme() {
+            var el = document.documentElement;
+            var next = el.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            el.setAttribute('data-theme', next);
+            try { localStorage.setItem('alats-theme', next); } catch (e) {}
+        }
+    </script>
 </body>
 </html>

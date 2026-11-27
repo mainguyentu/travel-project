@@ -2,103 +2,51 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\RateDestinationRequest;
-use App\Services\ApiClient;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Http\Request;
 
-class ProfileController extends Controller
+class ProfileController extends BaseController
 {
-    private ApiClient $apiClient;
-
-    public function __construct(ApiClient $apiClient)
+    public function profile()
     {
-        $this->apiClient = $apiClient;
+        return view('profile', ['user' => session('user')]);
     }
 
-    /**
-     * Display user profile
-     */
-    public function index()
+    public function favorites(Request $request)
     {
-        $user = Session::get('user');
+        $page = max(1, (int) $request->input('page', 1));
+        $body = $this->api()->get('me/favorites', ['page' => $page, 'limit' => 20]);
 
-        return view('pages.public.profile', [
-            'user' => $user,
+        return view('favorites', [
+            'destinations' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? ['page' => $page, 'limit' => 20],
         ]);
     }
 
-    /**
-     * Display user favorites
-     */
-    public function favorites()
+    public function addFavorite(int $id)
     {
-        $response = $this->apiClient->get('me/favorites');
-        $requestFailed = ($response['success'] ?? true) === false;
+        $this->api()->post("me/favorites/{$id}");
 
-        return view('pages.public.favorites', [
-            'favorites' => $response['data'] ?? [],
-            'favoritesError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách yêu thích.') : null,
+        return back()->with('status', 'Đã thêm vào yêu thích.');
+    }
+
+    public function removeFavorite(int $id)
+    {
+        $this->api()->delete("me/favorites/{$id}");
+
+        return back()->with('status', 'Đã xóa khỏi yêu thích.');
+    }
+
+    public function rate(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'rating_score' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:1000',
         ]);
-    }
-
-    /**
-     * Add favorite
-     */
-    public function addFavorite($destinationId)
-    {
-        $response = $this->apiClient->post("me/favorites/{$destinationId}");
-
-        if (request()->wantsJson()) {
-            return response()->json($response);
+        $body = $this->api()->put("me/ratings/{$id}", $data);
+        if (($body['_status'] ?? 500) !== 200) {
+            return back()->with('error', $this->apiError($body, 'Đánh giá thất bại.'));
         }
 
-        if (($response['success'] ?? false) === false) {
-            return back()->withErrors(['favorites' => $response['error'] ?? 'Không thể thêm vào yêu thích.']);
-        }
-
-        return back()->with('success', 'Đã thêm vào yêu thích');
-    }
-
-    /**
-     * Remove favorite
-     */
-    public function removeFavorite($destinationId)
-    {
-        $response = $this->apiClient->delete("me/favorites/{$destinationId}");
-
-        if (request()->wantsJson()) {
-            return response()->json($response);
-        }
-
-        if (($response['success'] ?? false) === false) {
-            return back()->withErrors(['favorites' => $response['error'] ?? 'Không thể xoá khỏi yêu thích.']);
-        }
-
-        return back()->with('success', 'Đã xoá khỏi yêu thích');
-    }
-
-    /**
-     * Rate destination
-     */
-    public function rate(RateDestinationRequest $request, $destinationId)
-    {
-        $validated = $request->validated();
-
-        $payload = [
-            'rating_score' => $validated['rating_score'],
-            'comment' => $validated['comment'] ?? null,
-        ];
-
-        $response = $this->apiClient->put("me/ratings/{$destinationId}", $payload);
-
-        if (request()->wantsJson()) {
-            return response()->json($response);
-        }
-
-        if (($response['success'] ?? false) === false) {
-            return back()->withErrors(['rating' => $response['error'] ?? 'Không thể gửi đánh giá.']);
-        }
-
-        return back()->with('success', 'Cảm ơn bạn đã đánh giá.');
+        return back()->with('status', 'Đã lưu đánh giá.');
     }
 }

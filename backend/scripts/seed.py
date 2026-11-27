@@ -1,43 +1,33 @@
-﻿import sys
-from pathlib import Path
+"""Seed MVP dev accounts. Idempotent."""
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+import os
+import sys
 
-from app.db.session import SessionLocal
-from app.db.models import User
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.core.security import hash_password
+from app.db.models import User
+from app.db.session import SessionLocal
+
+ACCOUNTS = [
+    ("Admin", "admin@alats.vn", "Admin@123", "admin"),
+    ("User", "user@alats.vn", "User@123", "user"),
+]
 
 
-def upsert_user(db, name, email, password, role):
-    user = db.query(User).filter(User.email == email).first()
-    if user:
-        user.name = name
-        user.role = role
-        user.status = "active"
-        user.password_hash = hash_password(password)
-        db.flush()
-        return user
-    user = User(name=name, email=email, password_hash=hash_password(password), role=role, status="active")
-    db.add(user)
-    db.flush()
-    return user
-
-
-def run():
+def main() -> None:
     db = SessionLocal()
     try:
-        admin = upsert_user(db, "Admin", "admin@alats.vn", "Admin@123", "admin")
-        user = upsert_user(db, "User", "user@alats.vn", "User@123", "user")
-
+        for name, email, password, role in ACCOUNTS:
+            if db.query(User).filter_by(email=email).first():
+                print(f"skip {email}")
+                continue
+            db.add(User(name=name, email=email, password_hash=hash_password(password), role=role))
+            print(f"created {email}")
         db.commit()
-        print("User seed done")
-        print(f"Admin: {admin.email} / Admin@123")
-        print(f"User: {user.email} / User@123")
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    run()
+    main()

@@ -2,72 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\ApiClient;
+use Illuminate\Http\Request;
 
-class DestinationController extends Controller
+class DestinationController extends BaseController
 {
-    private ApiClient $apiClient;
-
-    public function __construct(ApiClient $apiClient)
+    public function index(Request $request)
     {
-        $this->apiClient = $apiClient;
-    }
+        $query = $request->only(['category_slug', 'price_level', 'rating_min', 'keyword', 'sort', 'q']);
+        $query['page'] = max(1, (int) $request->input('page', 1));
+        $query['limit'] = 15;
 
-    /**
-     * Display destination list
-     */
-    public function index()
-    {
-        $page = request('page', 1);
-        $category = request('category_slug', request('category'));
-        $priceLevel = request('price_level');
-        $rating = request('rating_min', request('rating'));
-        $keyword = request('keyword', request('search'));
-        $sort = request('sort');
+        $path = $request->filled('q') ? 'destinations/search' : 'destinations';
+        $body = $this->api()->get($path, array_filter($query, fn ($v) => $v !== null && $v !== ''));
+        $filters = $this->api()->get('public/landing');
 
-        $query = ['page' => $page, 'limit' => 15];
-        
-        if ($category) {
-            $query['category_slug'] = $category;
-        }
-        if ($priceLevel) {
-            $query['price_level'] = $priceLevel;
-        }
-        if ($rating) {
-            $query['rating_min'] = $rating;
-        }
-        if ($keyword) {
-            $query['keyword'] = $keyword;
-        }
-        if ($sort) {
-            $query['sort'] = $sort;
-        }
-
-        $response = $this->apiClient->get('destinations', $query);
-        $requestFailed = ($response['success'] ?? true) === false;
-        $meta = $response['meta'] ?? [];
-        $pageValue = (int) ($meta['page'] ?? 1);
-        $limitValue = (int) ($meta['limit'] ?? 15);
-        $total = (int) ($meta['total'] ?? 0);
-        $lastPage = $limitValue > 0 ? (int) ceil($total / $limitValue) : 1;
-
-        $landing = $this->apiClient->get('public/landing');
-        $landingData = $landing['data'] ?? [];
-
-        // Shuffle destinations list before rendering
-        $destinations = collect($response['data'] ?? [])->shuffle()->all();
-
-        return view('pages.public.destinations.index', [
-            'destinations' => $destinations,
-            'pagination' => [
-                'current_page' => $pageValue,
-                'last_page' => max($lastPage, 1),
-                'limit' => $limitValue,
-                'total' => $total,
-            ],
-            'categories' => $landingData['categories'] ?? [],
-            'listError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách điểm đến.') : null,
+        return view('destinations.index', [
+            'destinations' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? ['page' => 1, 'limit' => 15, 'total' => 0],
+            'filters' => $filters['data']['categories'] ?? [],
+            'query' => $request->only(['category_slug', 'price_level', 'rating_min', 'keyword', 'sort']),
         ]);
     }
-
 }

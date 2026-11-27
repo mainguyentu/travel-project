@@ -1,28 +1,17 @@
-﻿from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from collections.abc import Iterator
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.core.config import settings
+from app.db.base import Base
+import app.db.models  # noqa: F401  (register models)
 
-connect_args = {}
-engine_kwargs = {"pool_pre_ping": True}
-
-if settings.database_url.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
-    engine_kwargs["connect_args"] = connect_args
-else:
-    engine_kwargs.update(
-        {
-            "pool_size": settings.db_pool_size,
-            "max_overflow": settings.db_max_overflow,
-            "pool_timeout": settings.db_pool_timeout,
-            "pool_recycle": settings.db_pool_recycle,
-        }
-    )
-
-engine = create_engine(settings.database_url, **engine_kwargs)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_engine(settings.database_url, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-def get_db():
+def get_db() -> Iterator[Session]:
     db = SessionLocal()
     try:
         yield db

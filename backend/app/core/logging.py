@@ -1,4 +1,5 @@
-﻿import logging
+import logging
+
 from .config import settings
 
 
