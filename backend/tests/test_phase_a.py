@@ -7,12 +7,13 @@ os.environ.setdefault(
 
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.db.models import User
 from app.db.session import SessionLocal
 from app.main import app
 
 client = TestClient(app)
-INTERNAL_HEADERS = {"X-Internal-Key": "dev-internal-key"}
+INTERNAL_HEADERS = {"X-Internal-Key": settings.internal_api_key}
 
 
 def _login(email: str, password: str) -> dict:
