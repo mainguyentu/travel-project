@@ -1,53 +1,46 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\DestinationController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DestinationController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ProfileController;
+use Illuminate\Support\Facades\Route;
 
-// Public routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
-
-// Destination routes
 Route::get('/destinations', [DestinationController::class, 'index'])->name('destinations.index');
+Route::get('/activities/{slug}', [AdminController::class, 'activityRecommendations'])->name('activities.show');
 
-// Auth routes
-Route::middleware('guest')->group(function () {
+Route::middleware('guest.only')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
-    
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
 });
 
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('session.auth');
-
-// User routes
 Route::middleware('session.auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/profile', [ProfileController::class, 'profile'])->name('profile.index');
     Route::get('/my-favorites', [ProfileController::class, 'favorites'])->name('favorites.index');
-    
-    Route::post('/favorites/{destinationId}', [ProfileController::class, 'addFavorite'])->name('favorites.add');
-    Route::delete('/favorites/{destinationId}', [ProfileController::class, 'removeFavorite'])->name('favorites.remove');
-    
-    Route::put('/ratings/{destinationId}', [ProfileController::class, 'rate'])->name('ratings.store');
+    Route::post('/favorites/{id}', [ProfileController::class, 'addFavorite'])->name('favorites.add');
+    Route::delete('/favorites/{id}', [ProfileController::class, 'removeFavorite'])->name('favorites.remove');
+    Route::put('/ratings/{id}', [ProfileController::class, 'rate'])->name('ratings.store');
 });
 
-// Admin routes
-Route::middleware('session.admin')->prefix('admin')->group(function () {
-    Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-    Route::get('/users', [AdminController::class, 'users'])->name('admin.users.index');
-    Route::patch('/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('admin.users.status');
-    Route::patch('/users/{userId}/role', [AdminController::class, 'updateUserRole'])->name('admin.users.role');
-    Route::get('/categories', [AdminController::class, 'categories'])->name('admin.categories.index');
-    Route::post('/categories', [AdminController::class, 'createCategory'])->name('admin.categories.store');
-    Route::put('/categories/{categoryId}', [AdminController::class, 'updateCategory'])->name('admin.categories.update');
-    Route::delete('/categories/{categoryId}', [AdminController::class, 'deleteCategory'])->name('admin.categories.delete');
-    Route::get('/destinations', [AdminController::class, 'destinations'])->name('admin.destinations.index');
-    Route::post('/destinations', [AdminController::class, 'createDestination'])->name('admin.destinations.store');
-    Route::put('/destinations/{destinationId}', [AdminController::class, 'updateDestination'])->name('admin.destinations.update');
-    Route::delete('/destinations/{destinationId}', [AdminController::class, 'deleteDestination'])->name('admin.destinations.delete');
-    Route::get('/stats', [AdminController::class, 'stats'])->name('admin.stats.index');
+Route::middleware('session.admin')->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/users', [AdminController::class, 'users'])->name('users.index');
+    Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
+    Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
+    Route::get('/categories', [AdminController::class, 'categories'])->name('categories.index');
+    Route::post('/categories', [AdminController::class, 'storeCategory'])->name('categories.store');
+    Route::put('/categories/{id}', [AdminController::class, 'updateCategory'])->name('categories.update');
+    Route::delete('/categories/{id}', [AdminController::class, 'deleteCategory'])->name('categories.delete');
+    Route::get('/destinations', [AdminController::class, 'destinations'])->name('destinations.index');
+    Route::post('/destinations', [AdminController::class, 'storeDestination'])->name('destinations.store');
+    Route::post('/destinations/bulk', [AdminController::class, 'bulkStoreDestinations'])->name('destinations.bulk');
+    Route::put('/destinations/{id}', [AdminController::class, 'updateDestination'])->name('destinations.update');
+    Route::delete('/destinations/{id}', [AdminController::class, 'deleteDestination'])->name('destinations.delete');
+    Route::get('/stats', [AdminController::class, 'stats'])->name('stats.index');
+    Route::get('/audit-logs', [AdminController::class, 'auditLogs'])->name('audit-logs.index');
 });

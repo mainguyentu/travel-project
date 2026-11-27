@@ -1,15 +1,13 @@
-﻿from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
+
+from app.core.errors import AppError
 from app.core.responses import response_success
 from app.db.session import get_db
 from app.repositories.destinations import DestinationRepository
-from app.services.destinations import DestinationService
-from app.utils.serializers import destination_to_dict
-from app.core.cache import cache_get, cache_set, key_dest_list, key_dest_detail
-from app.core.config import settings
-from app.core.events import EventType, build_event
-from app.core.kafka_bus import publish_event
-from app.core.search import search_destination_ids
+from app.services import events as event_bus
+from app.services import search as search_svc
+from app.utils.serializers import category_to_dict, destination_to_dict
 
 router = APIRouter(prefix="/destinations", tags=["destinations"])
 
@@ -26,19 +24,15 @@ def list_destinations(
     sort: str | None = None,
     db: Session = Depends(get_db),
 ):
+    if price_level and price_level not in ("free", "low", "medium", "high"):
+        raise AppError("VALIDATION_ERROR", "Invalid price_level", 400)
+    if sort and sort not in ("rating", "views", "name", "latest"):
+        raise AppError("VALIDATION_ERROR", "Invalid sort", 400)
     offset = (page - 1) * limit
     repo = DestinationRepository(db)
-    cache_key = key_dest_list(category_slug, price_level, rating_min, page, sort, keyword)
-    cached = cache_get(cache_key)
-    if cached:
-        data = cached.get("data", [])
-        total = cached.get("total", 0)
-        meta = {"request_id": request.state.request_id, "page": page, "limit": limit, "total": total}
-        return response_success(data, meta)
     items = repo.list(category_slug, price_level, rating_min, keyword, sort, offset, limit)
     total = repo.count(category_slug, price_level, rating_min, keyword)
     data = [destination_to_dict(d) for d in items]
-    cache_set(cache_key, {"data": data, "total": total})
     meta = {"request_id": request.state.request_id, "page": page, "limit": limit, "total": total}
     return response_success(data, meta)
 
@@ -55,55 +49,39 @@ def search(
 ):
     offset = (page - 1) * limit
     repo = DestinationRepository(db)
-    items = None
-
-    if settings.search_use_elasticsearch and q:
-        ids = search_destination_ids(q=q, category_slug=category_slug, price_level=price_level, page=page, limit=limit)
-        if ids is not None:
-            items = repo.get_by_ids(ids)
-
-    if items is None:
+    ids, es_used = search_svc.search_ids(q, category_slug, price_level, offset, limit)
+    if es_used:
+        items = repo.get_by_ids(ids)
+        by_id = {d.id: d for d in items}
+        items = [by_id[i] for i in ids if i in by_id]
+    else:
         items = repo.search(q, category_slug, price_level, offset, limit)
-
     data = [destination_to_dict(d) for d in items]
-    meta = {"request_id": request.state.request_id, "page": page, "limit": limit}
+    meta = {"request_id": request.state.request_id, "page": page, "limit": limit, "q": q,
+            "search_engine": "elasticsearch" if es_used else "db"}
     return response_success(data, meta)
 
 
 @router.get("/{destination_id}")
 def detail(destination_id: int, request: Request, db: Session = Depends(get_db)):
-    cache_key = key_dest_detail(destination_id)
-    cached = cache_get(cache_key)
-    if cached:
-        if "insight" not in cached or "metrics" not in cached:
-            service = DestinationService(db)
-            destination = service.get_detail(destination_id, increment_view=False)
-            cached = destination_to_dict(destination)
-        repo = DestinationRepository(db)
-        repo.increment_view(destination_id)
-        db.commit()
-        publish_event(
-            settings.kafka_topic_view,
-            build_event(
-                EventType.DESTINATION_VIEWED,
-                {"destination_id": destination_id, "delta": 1},
-                request_id=request.state.request_id,
-            ),
-        )
-        cached["view_count"] = int(cached.get("view_count", 0)) + 1
-        cache_set(cache_key, cached)
-        return response_success(cached, {"request_id": request.state.request_id})
-    service = DestinationService(db)
-    destination = service.get_detail(destination_id, increment_view=True)
+    repo = DestinationRepository(db)
+    destination = repo.get_detail(destination_id)
+    if not destination or destination.status != "active":
+        raise AppError("NOT_FOUND", "Destination not found", 404)
+    repo.increment_view(destination_id)
     db.commit()
-    publish_event(
-        settings.kafka_topic_view,
-        build_event(
-            EventType.DESTINATION_VIEWED,
-            {"destination_id": destination_id, "delta": 1},
-            request_id=request.state.request_id,
-        ),
+    db.refresh(destination)
+    event_bus.publish("destination.viewed", {"destination_id": destination_id})
+    insight_row = repo.insight_for(destination_id)
+    fav_count = repo.favorite_count(destination_id)
+    rating_count, rating_sum = repo.rating_stats(destination_id)
+    cats = repo.categories_for(destination_id)
+    data = destination_to_dict(
+        destination,
+        categories=cats,
+        insight=insight_row.final_data if insight_row else None,
+        favorite_count=fav_count,
+        rating_count=rating_count,
+        rating_sum=rating_sum,
     )
-    data = destination_to_dict(destination)
-    cache_set(cache_key, data)
     return response_success(data, {"request_id": request.state.request_id})

@@ -1,17 +1,14 @@
-﻿from app.app_factory import create_app
-from app.routers import auth, public, activity_public, destinations, interaction, admin, analytics
-from app.core.config import settings
+from app.app_factory import create_app
+from app.routers import activities, admin, analytics, auth, destinations, interaction, internal, observability, public
 
-routers = [
+app = create_app([
     auth.router,
     public.router,
+    activities.router,
     destinations.router,
     interaction.router,
     admin.router,
     analytics.router,
-]
-
-if settings.activity_recommendation_endpoint_enabled:
-    routers.insert(2, activity_public.router)
-
-app = create_app(routers)
+    internal.router,
+    observability.router,
+])

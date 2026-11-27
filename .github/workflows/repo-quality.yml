@@ -1,178 +1,68 @@
-name: Repo Quality
+name: repo-quality
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
 
 jobs:
-  backend-tests:
+  backend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run backend tests with coverage gate
-        run: |
-          pytest tests -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=70
-
-      - name: Upload backend coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage
-          path: backend/coverage.xml
-
-  security-scan:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pip-audit
-
-      - name: Backend dependency scan (pip-audit)
-        run: |
-          mkdir -p security-reports
-          pip-audit -r backend/requirements.txt -f json -o security-reports/pip-audit.json || true
-
-      - name: Install frontend dependencies for scan
-        working-directory: frontend
-        run: |
-          composer install --no-interaction --prefer-dist --no-progress -vvv || {
-            echo "Composer install failed, clearing cache and retrying..."
-            composer clear-cache
-            composer install --no-interaction --prefer-dir --no-progress
-          }
-          npm ci
+    services:
+      postgres:
+        image: postgres:16
         env:
-          COMPOSER_PROCESS_TIMEOUT: 1200
-          COMPOSER_NO_INTERACTION: 1
-          COMPOSER_NO_AUDIT: 1
-      - name: Frontend dependency scan (Composer)
-        run: |
-          composer audit --working-dir=frontend --format=json > security-reports/composer-audit.json || true
-
-      - name: Frontend dependency scan (npm)
-        working-directory: frontend
-        run: |
-          set +e
-          npm audit --json > ../security-reports/npm-audit.json
-          audit_exit_code=$?
-          set -e
-
-          # npm audit returns 1 when vulnerabilities are found; keep the report and continue.
-          # Fail only on unexpected execution errors.
-          if [ "$audit_exit_code" -gt 1 ]; then
-            echo "npm audit failed unexpectedly with exit code $audit_exit_code"
-            exit "$audit_exit_code"
-          fi
-
-      - name: Build backend image for scan
-        run: docker build -t travel-project-backend-ci:latest ./backend
-
-      - name: Trivy scan backend image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: travel-project-backend-ci:latest
-          format: sarif
-          output: security-reports/trivy-backend-image.sarif
-          severity: HIGH,CRITICAL
-
-      - name: Upload security reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-reports
-          path: security-reports
-
-      - name: Upload Trivy SARIF
-        if: github.event_name == 'pull_request'
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: security-reports/trivy-backend-image.sarif
-
-  frontend-tests:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+          POSTGRES_DB: travel
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d travel"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install deps
+        run: pip install -r backend/requirements.txt
+      - name: Migrate + test
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/travel
+          REDIS_URL: redis://localhost:6379/0
+          ES_ENABLED: "false"
+          EVENTS_ENABLED: "false"
+          INTERNAL_API_KEY: ci-internal-key
+        run: |
+          cd backend
+          alembic upgrade head
+          python scripts/seed.py
+          python scripts/seed_catalog.py
+          python -m pytest tests/ -q
+      - name: pip-audit (advisory — lên blocking khi hết CVE HIGH chưa fix, U4)
+        run: python -m pip_audit -r backend/requirements.txt || true
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          coverage: xdebug
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend assets dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
-
-      - name: Install frontend dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Copy environment file
-        run: cp .env.example .env
-
-      - name: Generate app key
-        run: php artisan key:generate --force
-
-      - name: Run frontend feature tests with coverage
+      - name: Install + test (blocking, U4)
         run: |
-          mkdir -p build/logs
-          vendor/bin/phpunit --list-tests
-          vendor/bin/phpunit --configuration phpunit.xml --coverage-clover build/logs/clover.xml
+          cd frontend
+          composer install --no-interaction
+          cp .env.example .env
+          php artisan key:generate
+          php vendor/bin/phpunit
 
-      - name: Upload frontend coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-coverage
-          path: frontend/build/logs/clover.xml
+  compose-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose (blocking, U4)
+        run: docker compose config

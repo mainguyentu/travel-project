@@ -1,4 +1,4 @@
-﻿class AppError(Exception):
+class AppError(Exception):
     def __init__(self, code: str, message: str, status_code: int = 400, details: list | None = None):
         super().__init__(message)
         self.code = code

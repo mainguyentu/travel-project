@@ -2,128 +2,77 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\LoginRequest;
-use App\Http\Requests\RegisterRequest;
-use App\Services\ApiClient;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Http\Request;
 
-class AuthController extends Controller
+class AuthController extends BaseController
 {
-    private ApiClient $apiClient;
-
-    public function __construct(ApiClient $apiClient)
-    {
-        $this->apiClient = $apiClient;
-    }
-
-    /**
-     * Show login form
-     */
     public function showLogin()
     {
-        if (Session::has('access_token')) {
-            return redirect('/profile');
-        }
-        
-        return view('pages.public.auth.login');
+        return view('auth.login');
     }
 
-    /**
-     * Handle login
-     */
-    public function login(LoginRequest $request)
+    public function login(Request $request)
     {
-        $validated = $request->validated();
-
-        $response = $this->apiClient->post('auth/login', [
-            'email' => $validated['email'],
-            'password' => $validated['password'],
+        $data = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
         ]);
 
-        if (!($response['success'] ?? false)) {
-            $apiError = $response['error'] ?? 'Thông tin xác thực không hợp lệ';
-            return back()
-                ->withInput($request->only('email'))
-                ->withErrors([
-                    'email' => 'Email hoặc mật khẩu chưa đúng.',
-                    'api' => $apiError,
-                ]);
+        $body = $this->api()->post('auth/login', $data);
+        if (($body['_status'] ?? 500) !== 200) {
+            return back()->withInput($request->only('email'))->with('error', $this->apiError($body, 'Đăng nhập thất bại.'));
         }
 
-        // Store tokens in session
-        Session::put('access_token', $response['data']['access_token']);
-        Session::put('refresh_token', $response['data']['refresh_token']);
+        session([
+            'access_token' => $body['data']['access_token'],
+            'refresh_token' => $body['data']['refresh_token'],
+        ]);
 
-        $user = [
-            'email' => $validated['email'],
-            'name' => $validated['email'],
-            'role' => 'user',
-            'is_admin' => false,
-        ];
+        // Role probe: admin khi đọc được admin stats.
+        $probe = $this->api()->get('admin/stats/top-views');
+        session(['is_admin' => ($probe['_status'] ?? 403) === 200]);
 
-        // Probe admin endpoint to infer admin role from current token.
-        $adminProbe = $this->apiClient->get('admin/stats/top-views');
-        if (($adminProbe['success'] ?? false) === true) {
-            $user['role'] = 'admin';
-            $user['is_admin'] = true;
-        }
+        $me = null;
+        // Lấy email làm định danh hiển thị (backend MVP chưa có /me/profile).
+        session(['user' => ['email' => $data['email']]]);
 
-        Session::put('user', $user);
-
-        return redirect(route('home'))->with('success', 'Đăng nhập thành công.');
+        return redirect()->intended(session('is_admin') ? '/admin' : '/');
     }
 
-    /**
-     * Show register form
-     */
     public function showRegister()
     {
-        if (Session::has('access_token')) {
-            return redirect(route('profile'));
-        }
-        
-        return view('pages.public.auth.register');
+        return view('auth.register');
     }
 
-    /**
-     * Handle registration
-     */
-    public function register(RegisterRequest $request)
+    public function register(Request $request)
     {
-        $validated = $request->validated();
-
-        $response = $this->apiClient->post('auth/register', [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
+        $data = $request->validate([
+            'name' => 'required|string|max:120',
+            'email' => 'required|email',
+            'password' => 'required|string|min:8|max:128|confirmed',
         ]);
+        unset($data['password_confirmation']);
 
-        if (!($response['success'] ?? false)) {
-            $details = $response['details'] ?? [];
-            $errors = is_array($details) && $details !== []
-                ? $details
-                : ['api' => ($response['error'] ?? 'Không thể đăng ký tài khoản lúc này.')];
-
-            return back()
-                ->withInput($request->except('password', 'password_confirmation'))
-                ->withErrors($errors);
+        $body = $this->api()->post('auth/register', $data);
+        if (($body['_status'] ?? 500) !== 201) {
+            return back()->withInput($request->only('name', 'email'))->with('error', $this->apiError($body, 'Đăng ký thất bại.'));
         }
 
-        return redirect(route('login'))->with('success', 'Đăng ký thành công. Vui lòng đăng nhập.');
+        return redirect()->route('login')->with('status', 'Đăng ký thành công, mời đăng nhập.');
     }
 
-    /**
-     * Handle logout
-     */
-    public function logout()
+    public function logout(Request $request)
     {
-        $refreshToken = Session::get('refresh_token');
-        if ($refreshToken) {
-            $this->apiClient->post('auth/logout', ['refresh_token' => $refreshToken]);
+        $refresh = session('refresh_token');
+        if ($refresh) {
+            try {
+                $this->api()->post('auth/logout', ['refresh_token' => $refresh]);
+            } catch (\Throwable $e) {
+                // Logout best-effort: luôn xóa session local.
+            }
         }
+        session()->forget(['access_token', 'refresh_token', 'user', 'is_admin']);
 
-        Session::forget(['access_token', 'refresh_token', 'user']);
-        
-        return redirect(route('home'))->with('success', 'Đăng xuất thành công.');
+        return redirect()->route('home');
     }
 }

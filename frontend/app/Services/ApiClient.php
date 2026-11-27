@@ -2,366 +2,167 @@
 
 namespace App\Services;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Session;
-use Exception;
+use Illuminate\Support\Facades\Http;
 
 class ApiClient
 {
-    private Client $client;
-    private string $baseUrl;
-    private string $apiVersion;
+    protected ?string $accessToken;
 
-    public function __construct()
+    protected ?string $refreshToken;
+
+    /** @var callable|null */
+    protected $onTokensRefreshed;
+
+    /** @var callable|null */
+    protected $onUnauthenticated;
+
+    public function __construct(?string $accessToken = null, ?string $refreshToken = null)
     {
-        $this->baseUrl = config('api.base_url');
-        $this->apiVersion = config('api.version');
-        
-        $this->client = new Client([
-            'base_uri' => $this->baseUrl,
-            'timeout' => config('api.timeout', 30),
-            'verify' => config('api.verify_ssl', true),
-        ]);
+        $this->accessToken = $accessToken;
+        $this->refreshToken = $refreshToken;
     }
 
-    /**
-     * Get the full endpoint URL
-     */
-    private function getEndpoint(string $path): string
+    public function onTokensRefreshed(callable $cb): static
     {
-        return "/api/{$this->apiVersion}/{$path}";
+        $this->onTokensRefreshed = $cb;
+
+        return $this;
     }
 
-    /**
-     * Get headers with authorization
-     */
-    private function getHeaders(): array
+    public function onUnauthenticated(callable $cb): static
     {
-        $headers = [
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ];
+        $this->onUnauthenticated = $cb;
 
-        // Add authorization token if exists
-        if ($token = Session::get('access_token')) {
-            $headers['Authorization'] = "Bearer {$token}";
-        }
-
-        return $headers;
+        return $this;
     }
 
-    /**
-     * GET request
-     */
     public function get(string $path, array $query = []): array
     {
-        if (!$this->shouldUseCache($path)) {
-            return $this->performGet($path, $query);
+        $key = $this->cacheKey('GET', $path, $query);
+        $ttl = $this->ttlFor($path);
+        if (config('api.cache.enabled') && $ttl > 0 && $key) {
+            return Cache::remember($key, $ttl, fn () => $this->request('GET', $path, ['query' => $query]));
         }
 
-        $store = Cache::store($this->getCacheStore());
-        $cacheKey = $this->buildCacheKey($path, $query);
-        $cached = $store->get($cacheKey);
-
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $response = $this->performGet($path, $query);
-
-        if (($response['success'] ?? true) !== false) {
-            $store->put($cacheKey, $response, now()->addSeconds($this->getCacheTtl($path)));
-            $this->registerCacheKey($cacheKey);
-        }
-
-        return $response;
+        return $this->request('GET', $path, ['query' => $query]);
     }
 
-    /**
-     * GET request without cache
-     */
-    private function performGet(string $path, array $query = []): array
+    public function post(string $path, array $payload = []): array
     {
-        return $this->sendRequest('GET', $path, [
-            'query' => $query,
-        ]);
+        $result = $this->request('POST', $path, ['json' => $payload]);
+        $this->invalidate($path);
+
+        return $result;
     }
 
-    /**
-     * POST request
-     */
-    public function post(string $path, array $data = []): array
+    public function put(string $path, array $payload = []): array
     {
-        $response = $this->sendRequest('POST', $path, [
-            'json' => $data,
-        ]);
+        $result = $this->request('PUT', $path, ['json' => $payload]);
+        $this->invalidate($path);
 
-        if (($response['success'] ?? true) !== false) {
-            $this->invalidateCacheOnWrite();
-        }
-
-        return $response;
+        return $result;
     }
 
-    /**
-     * PUT request
-     */
-    public function put(string $path, array $data = []): array
+    public function patch(string $path, array $payload = []): array
     {
-        $response = $this->sendRequest('PUT', $path, [
-            'json' => $data,
-        ]);
+        $result = $this->request('PATCH', $path, ['json' => $payload]);
+        $this->invalidate($path);
 
-        if (($response['success'] ?? true) !== false) {
-            $this->invalidateCacheOnWrite();
-        }
-
-        return $response;
+        return $result;
     }
 
-    /**
-     * PATCH request
-     */
-    public function patch(string $path, array $data = []): array
-    {
-        $response = $this->sendRequest('PATCH', $path, [
-            'json' => $data,
-        ]);
-
-        if (($response['success'] ?? true) !== false) {
-            $this->invalidateCacheOnWrite();
-        }
-
-        return $response;
-    }
-
-    /**
-     * DELETE request
-     */
     public function delete(string $path): array
     {
-        $response = $this->sendRequest('DELETE', $path);
+        $result = $this->request('DELETE', $path);
+        $this->invalidate($path);
 
-        if (($response['success'] ?? true) !== false) {
-            $this->invalidateCacheOnWrite();
-        }
-
-        return $response;
+        return $result;
     }
 
-    /**
-     * Handle API errors
-     */
-    private function handleError(GuzzleException $e): array
+    protected function request(string $method, string $path, array $options = [], bool $retry = true): array
     {
-        $response = $e instanceof RequestException ? $e->getResponse() : null;
-        $statusCode = $response?->getStatusCode() ?? 500;
-        $body = $response?->getBody()->getContents() ?? '';
+        $response = Http::withHeaders($this->authHeaders())->$method(
+            $this->url($path),
+            $options['json'] ?? $options['query'] ?? []
+        );
 
-        try {
-            $decoded = json_decode($body, true) ?? [];
-        } catch (Exception) {
-            $decoded = ['message' => $body];
-        }
-
-        return [
-            'success' => false,
-            'status' => $statusCode,
-            'error' => $decoded['error']['message'] ?? $decoded['message'] ?? 'API Error',
-            'details' => $decoded['error']['details'] ?? $decoded,
-        ];
-    }
-
-    /**
-     * Send request with automatic token refresh
-     */
-    private function sendRequest(string $method, string $path, array $options = [], bool $allowRefresh = true): array
-    {
-        try {
-            $response = $this->client->request($method, $this->getEndpoint($path), array_merge([
-                'headers' => $this->getHeaders(),
-            ], $options));
-
-            return json_decode($response->getBody()->getContents(), true);
-        } catch (RequestException $e) {
-            if ($allowRefresh && $this->shouldAttemptRefresh($e, $path) && $this->refreshTokens()) {
-                return $this->sendRequest($method, $path, $options, false);
+        if ($response->status() === 401 && $retry && ! str_starts_with(ltrim($path, '/'), 'auth/')) {
+            if ($this->tryRefresh()) {
+                return $this->request($method, $path, $options, false);
             }
-
-            return $this->handleError($e);
-        } catch (GuzzleException $e) {
-            return $this->handleError($e);
+            if ($this->onUnauthenticated) {
+                ($this->onUnauthenticated)();
+            }
         }
+
+        $body = $response->json() ?? [];
+        $body['_status'] = $response->status();
+
+        return $body;
     }
 
-    private function shouldAttemptRefresh(RequestException $e, string $path): bool
+    protected function tryRefresh(): bool
     {
-        $status = $e->getResponse()?->getStatusCode();
-        if ($status !== 401) {
+        if (! $this->refreshToken) {
             return false;
         }
-
-        if (!Session::has('refresh_token')) {
+        $response = Http::post($this->url('auth/refresh'), ['refresh_token' => $this->refreshToken]);
+        $body = $response->json() ?? [];
+        if (! $response->successful() || empty($body['data']['access_token'])) {
             return false;
         }
-
-        if (str_starts_with($path, 'auth/')) {
-            return false;
+        $this->accessToken = $body['data']['access_token'];
+        $this->refreshToken = $body['data']['refresh_token'] ?? $this->refreshToken;
+        if ($this->onTokensRefreshed) {
+            ($this->onTokensRefreshed)($this->accessToken, $this->refreshToken);
         }
 
         return true;
     }
 
-    private function refreshTokens(): bool
+    protected function authHeaders(): array
     {
-        $refreshToken = Session::get('refresh_token');
-        if (!$refreshToken) {
-            return false;
-        }
-
-        try {
-            $response = $this->client->post($this->getEndpoint('auth/refresh'), [
-                'headers' => $this->getHeaders(),
-                'json' => [
-                    'refresh_token' => $refreshToken,
-                ],
-            ]);
-
-            $payload = json_decode($response->getBody()->getContents(), true);
-            if (!is_array($payload) || ($payload['success'] ?? false) === false) {
-                Session::forget(['access_token', 'refresh_token', 'user']);
-                return false;
-            }
-
-            $data = $payload['data'] ?? [];
-            if (!isset($data['access_token'], $data['refresh_token'])) {
-                Session::forget(['access_token', 'refresh_token', 'user']);
-                return false;
-            }
-
-            Session::put('access_token', $data['access_token']);
-            Session::put('refresh_token', $data['refresh_token']);
-
-            return true;
-        } catch (GuzzleException) {
-            Session::forget(['access_token', 'refresh_token', 'user']);
-            return false;
-        }
+        return $this->accessToken ? ['Authorization' => 'Bearer '.$this->accessToken] : [];
     }
 
-    private function shouldUseCache(string $path): bool
+    protected function url(string $path): string
     {
-        if (!config('api.cache.enabled', true)) {
-            return false;
-        }
-
-        $hasToken = Session::has('access_token');
-        if ($hasToken && !config('api.cache.cache_authenticated', false)) {
-            return false;
-        }
-
-        $prefixes = $hasToken
-            ? config('api.cache.authenticated_path_prefixes', [])
-            : config('api.cache.public_path_prefixes', []);
-
-        if (!is_array($prefixes) || $prefixes === []) {
-            return false;
-        }
-
-        foreach ($prefixes as $prefix) {
-            if (str_starts_with($path, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+        return rtrim(config('api.base_url'), '/').'/'.ltrim($path, '/');
     }
 
-    private function buildCacheKey(string $path, array $query): string
+    protected function ttlFor(string $path): int
     {
-        $normalizedQuery = $this->normalizeQuery($query);
-        $payload = $path;
-        if ($normalizedQuery !== []) {
-            $payload .= '?' . http_build_query($normalizedQuery);
+        $p = ltrim($path, '/');
+        if (str_starts_with($p, 'public/')) {
+            return (int) config('api.cache.ttl.public');
+        }
+        if (str_starts_with($p, 'destinations')) {
+            return (int) config('api.cache.ttl.destinations');
         }
 
-        return config('api.cache.key_prefix', 'frontend:api-response') . ':' . sha1($payload);
+        return (int) config('api.cache.ttl.default');
     }
 
-    private function normalizeQuery(array $query): array
+    protected function cacheKey(string $method, string $path, array $query): ?string
     {
+        if ($method !== 'GET') {
+            return null;
+        }
+        $p = ltrim($path, '/');
+        if (str_starts_with($p, 'auth/') || str_starts_with($p, 'me/') || str_starts_with($p, 'admin/')) {
+            return null;
+        }
         ksort($query);
 
-        foreach ($query as $key => $value) {
-            if (is_array($value)) {
-                $query[$key] = $this->normalizeQuery($value);
-            }
-        }
-
-        return $query;
+        return 'api:'.md5($p.'?'.http_build_query($query));
     }
 
-    private function getCacheTtl(string $path): int
+    protected function invalidate(string $path): void
     {
-        $pathTtls = config('api.cache.path_ttl', []);
-        if (is_array($pathTtls)) {
-            foreach ($pathTtls as $prefix => $ttl) {
-                if (str_starts_with($path, $prefix)) {
-                    return max((int) $ttl, 1);
-                }
-            }
-        }
-
-        return max((int) config('api.cache.default_ttl', 120), 1);
-    }
-
-    private function getCacheStore(): string
-    {
-        return (string) config('api.cache.store', 'redis');
-    }
-
-    private function getRegistryKey(): string
-    {
-        return (string) config('api.cache.registry_key', 'frontend:api-response:keys');
-    }
-
-    private function registerCacheKey(string $cacheKey): void
-    {
-        $store = Cache::store($this->getCacheStore());
-        $registryKey = $this->getRegistryKey();
-        $keys = $store->get($registryKey, []);
-
-        if (!is_array($keys)) {
-            $keys = [];
-        }
-
-        if (!in_array($cacheKey, $keys, true)) {
-            $keys[] = $cacheKey;
-            $store->forever($registryKey, $keys);
-        }
-    }
-
-    private function invalidateCacheOnWrite(): void
-    {
-        if (!config('api.cache.invalidate_on_write', true)) {
-            return;
-        }
-
-        $store = Cache::store($this->getCacheStore());
-        $registryKey = $this->getRegistryKey();
-        $keys = $store->pull($registryKey, []);
-
-        if (!is_array($keys)) {
-            return;
-        }
-
-        foreach ($keys as $cacheKey) {
-            if (is_string($cacheKey) && $cacheKey !== '') {
-                $store->forget($cacheKey);
-            }
+        $p = ltrim($path, '/');
+        if (str_starts_with($p, 'me/') || str_starts_with($p, 'admin/') || str_starts_with($p, 'destinations')) {
+            Cache::flush();
         }
     }
 }

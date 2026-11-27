@@ -2,393 +2,220 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\ApiClient;
 use Illuminate\Http\Request;
 
-class AdminController extends Controller
+class AdminController extends BaseController
 {
-    private ApiClient $apiClient;
-
-    public function __construct(ApiClient $apiClient)
+    public function dashboard(Request $request)
     {
-        $this->apiClient = $apiClient;
-    }
+        $api = $this->api();
+        $query = array_filter([
+            'from' => $request->input('from'),
+            'to' => $request->input('to'),
+        ]);
+        $fav = $api->get('admin/stats/top-favorites', ['limit' => 10] + $query);
+        $ratings = $api->get('admin/stats/top-ratings', ['limit' => 10] + $query);
+        $views = $api->get('admin/stats/top-views', ['limit' => 10]);
 
-    /**
-     * Dashboard
-     */
-    public function dashboard()
-    {
-        $users = $this->apiClient->get('admin/users', ['page' => 1, 'limit' => 1]);
-        $destinations = $this->apiClient->get('admin/destinations', ['page' => 1, 'limit' => 1]);
-        $topFavorites = $this->apiClient->get('admin/stats/top-favorites');
-        $topRatings = $this->apiClient->get('admin/stats/top-ratings');
-        $topViews = $this->apiClient->get('admin/stats/top-views');
-
-        $errors = [];
-        foreach ([$users, $destinations, $topFavorites, $topRatings, $topViews] as $payload) {
-            if (($payload['success'] ?? true) === false) {
-                $errors[] = $payload['error'] ?? 'Có lỗi khi tải dữ liệu dashboard.';
-            }
-        }
-
-        $stats = [
-            'total_users' => (int) (($users['meta']['total'] ?? 0)),
-            'total_destinations' => (int) (($destinations['meta']['total'] ?? 0)),
-            'total_reviews' => 0,
-            'avg_rating' => 0,
-            'top_favorites' => $topFavorites['data'] ?? [],
-            'top_ratings' => $topRatings['data'] ?? [],
-            'top_views' => $topViews['data'] ?? [],
-        ];
-        
-        return view('pages.admin.dashboard', [
-            'stats' => $stats,
-            'dashboardErrors' => $errors,
+        return view('admin.dashboard', [
+            'topFavorites' => $fav['data'] ?? [],
+            'topRatings' => $ratings['data'] ?? [],
+            'topViews' => $views['data'] ?? [],
+            'from' => $request->input('from'),
+            'to' => $request->input('to'),
+            'searchEngine' => $views['meta']['search_engine'] ?? $fav['meta']['search_engine'] ?? 'DB',
         ]);
     }
 
-    /**
-     * Users management
-     */
-    public function users()
+    public function stats(Request $request)
     {
-        $response = $this->apiClient->get('admin/users', ['page' => 1, 'limit' => 50]);
-        $requestFailed = ($response['success'] ?? true) === false;
+        $api = $this->api();
+        $query = array_filter([
+            'from' => $request->input('from'),
+            'to' => $request->input('to'),
+        ]);
+        $fav = $api->get('admin/stats/top-favorites', ['limit' => 10] + $query);
+        $ratings = $api->get('admin/stats/top-ratings', ['limit' => 10] + $query);
+        $views = $api->get('admin/stats/top-views', ['limit' => 10]);
 
-        return view('pages.admin.users.index', [
-            'users' => $response['data'] ?? [],
-            'usersError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách người dùng.') : null,
+        return view('admin.stats', [
+            'topFavorites' => $fav['data'] ?? [],
+            'topRatings' => $ratings['data'] ?? [],
+            'topViews' => $views['data'] ?? [],
+            'searchEngine' => $views['meta']['search_engine'] ?? $fav['meta']['search_engine'] ?? 'DB',
         ]);
     }
 
-    /**
-     * Categories management
-     */
+    public function users(Request $request)
+    {
+        $page = max(1, (int) $request->input('page', 1));
+        $body = $this->api()->get('admin/users', ['page' => $page, 'limit' => 20]);
+
+        return view('admin.users.index', [
+            'users' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? ['page' => $page, 'limit' => 20, 'total' => 0],
+        ]);
+    }
+
+    public function updateUserStatus(Request $request, int $id)
+    {
+        $data = $request->validate(['status' => 'required|in:active,locked']);
+        $this->api()->patch("admin/users/{$id}/status", $data);
+
+        return back()->with('status', 'Đã cập nhật trạng thái user.');
+    }
+
+    public function updateUserRole(Request $request, int $id)
+    {
+        $data = $request->validate(['role' => 'required|in:user,admin']);
+        $this->api()->patch("admin/users/{$id}/role", $data);
+
+        return back()->with('status', 'Đã cập nhật role user.');
+    }
+
     public function categories()
     {
-        $response = $this->apiClient->get('admin/categories');
-        $requestFailed = ($response['success'] ?? true) === false;
+        $body = $this->api()->get('admin/categories');
 
-        return view('pages.admin.categories.index', [
-            'categories' => $response['data'] ?? [],
-            'categoriesError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh mục.') : null,
-        ]);
+        return view('admin.categories.index', ['categories' => $body['data'] ?? []]);
     }
 
-    /**
-     * Destinations management
-     */
-    public function destinations()
+    public function storeCategory(Request $request)
     {
-        $page = max((int) request('page', 1), 1);
-        $limit = 20;
-        $keyword = trim((string) request('keyword', ''));
-
-        $params = ['page' => $page, 'limit' => $limit];
-        if ($keyword !== '') {
-            $params['keyword'] = $keyword;
-        }
-
-        $response = $this->apiClient->get('admin/destinations', $params);
-        $categoriesResponse = $this->apiClient->get('admin/categories');
-        $requestFailed = ($response['success'] ?? true) === false;
-        $categoriesFailed = ($categoriesResponse['success'] ?? true) === false;
-
-        $meta = $response['meta'] ?? [];
-        $pageValue = max((int) ($meta['page'] ?? $page), 1);
-        $limitValue = max((int) ($meta['limit'] ?? $limit), 1);
-        $total = max((int) ($meta['total'] ?? 0), 0);
-        $lastPage = max((int) ceil($total / $limitValue), 1);
-
-        return view('pages.admin.destinations.index', [
-            'destinations' => $response['data'] ?? [],
-            'destinationsError' => $requestFailed ? ($response['error'] ?? 'Không thể tải danh sách điểm đến.') : null,
-            'categories' => $categoriesResponse['data'] ?? [],
-            'categoriesError' => $categoriesFailed ? ($categoriesResponse['error'] ?? 'Khong the tai danh muc.') : null,
-            'pagination' => [
-                'current_page' => $pageValue,
-                'last_page' => $lastPage,
-                'limit' => $limitValue,
-                'total' => $total,
-            ],
-            'keyword' => $keyword,
-        ]);
-    }
-
-    /**
-     * Statistics
-     */
-    public function stats()
-    {
-        $topFavorites = $this->apiClient->get('admin/stats/top-favorites');
-        $topRatings = $this->apiClient->get('admin/stats/top-ratings');
-        $topViews = $this->apiClient->get('admin/stats/top-views');
-
-        $errors = [];
-        foreach ([$topFavorites, $topRatings, $topViews] as $payload) {
-            if (($payload['success'] ?? true) === false) {
-                $errors[] = $payload['error'] ?? 'Có lỗi khi tải thống kê.';
-            }
-        }
-
-        $response = [
-            'data' => [
-                'top_favorites' => $topFavorites['data'] ?? [],
-                'top_ratings' => $topRatings['data'] ?? [],
-                'top_views' => $topViews['data'] ?? [],
-                'total_requests' => 0,
-                'unique_users' => 0,
-                'avg_response_time' => 0,
-                'error_rate' => 0,
-                'new_users_today' => 0,
-                'new_reviews_today' => 0,
-                'active_sessions' => 0,
-            ],
-        ];
-
-        return view('pages.admin.stats', [
-            'stats' => $response['data'] ?? [],
-            'statsErrors' => $errors,
-        ]);
-    }
-
-    /**
-     * Update user status
-     */
-    public function updateUserStatus(Request $request, int $userId)
-    {
-        $validated = $request->validate([
-            'status' => 'required|in:active,locked',
-        ]);
-
-        $response = $this->apiClient->patch("admin/users/{$userId}/status", $validated);
-
-        return $this->handleActionResponse(
-            $response,
-            'Không thể cập nhật trạng thái người dùng.',
-            'Đã cập nhật trạng thái người dùng.'
-        );
-    }
-
-    /**
-     * Update user role
-     */
-    public function updateUserRole(Request $request, int $userId)
-    {
-        $validated = $request->validate([
-            'role' => 'required|in:user,admin',
-        ]);
-
-        $response = $this->apiClient->patch("admin/users/{$userId}/role", $validated);
-
-        return $this->handleActionResponse(
-            $response,
-            'Không thể cập nhật quyền người dùng',
-            'Đã cập nhật quyền người dùng.'
-        );
-    }
-
-    /**
-     * Create category
-     */
-    public function createCategory(Request $request)
-    {
-        $validated = $request->validate([
+        $data = $request->validate([
             'name' => 'required|string|max:120',
             'slug' => 'required|string|max:160',
             'descriptions' => 'nullable|string',
         ]);
+        $body = $this->api()->post('admin/categories', $data);
+        if (($body['_status'] ?? 500) !== 201) {
+            return back()->withInput()->with('error', $this->apiError($body, 'Tạo category thất bại.'));
+        }
 
-        $response = $this->apiClient->post('admin/categories', $validated);
-
-        return $this->handleActionResponse(
-            $response,
-            'Không thể tạo danh mục.',
-            'Đã tạo danh mục mới.'
-        );
+        return back()->with('status', 'Đã tạo category.');
     }
 
-    /**
-     * Update category
-     */
-    public function updateCategory(Request $request, int $categoryId)
+    public function updateCategory(Request $request, int $id)
     {
-        $validated = $request->validate([
+        $data = $request->validate([
             'name' => 'nullable|string|max:120',
             'slug' => 'nullable|string|max:160',
             'descriptions' => 'nullable|string',
         ]);
+        $this->api()->put("admin/categories/{$id}", array_filter($data, fn ($v) => $v !== null));
 
-        $payload = array_filter($validated, fn ($value) => $value !== null && $value !== '');
-        if ($payload === []) {
-            return back()->withErrors(['admin' => 'Vui lòng nhập ít nhất 1 trường cần cập nhật']);
-        }
-
-        $response = $this->apiClient->put("admin/categories/{$categoryId}", $payload);
-
-        return $this->handleActionResponse(
-            $response,
-            'Không thể cập nhật danh mục.',
-            'Đã cập nhật danh mục.'
-        );
+        return back()->with('status', 'Đã cập nhật category.');
     }
 
-    /**
-     * Delete category
-     */
-    public function deleteCategory(int $categoryId)
+    public function deleteCategory(int $id)
     {
-        $response = $this->apiClient->delete("admin/categories/{$categoryId}");
+        $this->api()->delete("admin/categories/{$id}");
 
-        return $this->handleActionResponse(
-            $response,
-            'Không thể xoá danh mục.',
-            'Đã xoá danh mục.'
-        );
+        return back()->with('status', 'Đã xóa category.');
     }
 
-    /**
-     * Create destination
-     */
-    public function createDestination(Request $request)
+    public function destinations(Request $request)
     {
-        $validated = $request->validate([
+        $page = max(1, (int) $request->input('page', 1));
+        $body = $this->api()->get('admin/destinations', [
+            'page' => $page,
+            'limit' => 20,
+            'status' => $request->input('status'),
+            'keyword' => $request->input('keyword'),
+        ]);
+
+        return view('admin.destinations.index', [
+            'destinations' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? ['page' => $page, 'limit' => 20, 'total' => 0],
+        ]);
+    }
+
+    public function storeDestination(Request $request)
+    {
+        $data = $request->validate([
             'name' => 'required|string|max:180',
             'slug' => 'required|string|max:220',
             'address' => 'nullable|string',
             'description' => 'nullable|string',
-            'price_level' => 'nullable|in:low,medium,high',
-            'open_hour' => 'nullable|string',
+            'price_level' => 'required|in:free,low,medium,high',
+            'open_hour' => 'nullable|string|max:120',
             'img_url' => 'nullable|string',
             'url_map' => 'nullable|string',
-            'lat' => 'nullable|numeric',
-            'lng' => 'nullable|numeric',
             'status' => 'nullable|in:active,inactive',
-            'category_ids' => 'nullable',
+            'category_slugs' => 'nullable|string',
         ]);
+        $data['category_slugs'] = $data['category_slugs'] !== null && $data['category_slugs'] !== ''
+            ? array_values(array_filter(array_map('trim', explode(',', $data['category_slugs']))))
+            : [];
+        $body = $this->api()->post('admin/destinations', $data);
+        if (($body['_status'] ?? 500) !== 201) {
+            return back()->withInput()->with('error', $this->apiError($body, 'Tạo destination thất bại.'));
+        }
 
-        $payload = $this->buildDestinationPayload($validated, $request);
-        $response = $this->apiClient->post('admin/destinations', $payload);
-
-        return $this->handleActionResponse(
-            $response,
-            'Không thể tạo mới địa điểm.',
-            'Đã tạo địa điểm mới.'
-        );
+        return back()->with('status', 'Đã tạo destination.');
     }
 
-    /**
-     * Update destination
-     */
-    public function updateDestination(Request $request, int $destinationId)
+    public function updateDestination(Request $request, int $id)
     {
-        $validated = $request->validate([
+        $data = $request->validate([
             'name' => 'nullable|string|max:180',
             'slug' => 'nullable|string|max:220',
+            'price_level' => 'nullable|in:free,low,medium,high',
+            'status' => 'nullable|in:active,inactive',
             'address' => 'nullable|string',
             'description' => 'nullable|string',
-            'price_level' => 'nullable|in:low,medium,high',
-            'open_hour' => 'nullable|string',
-            'img_url' => 'nullable|string',
-            'url_map' => 'nullable|string',
-            'lat' => 'nullable|numeric',
-            'lng' => 'nullable|numeric',
-            'status' => 'nullable|in:active,inactive',
-            'category_ids' => 'nullable',
         ]);
+        $this->api()->put("admin/destinations/{$id}", array_filter($data, fn ($v) => $v !== null));
 
-        $payload = $this->buildDestinationPayload($validated, $request);
-        if ($payload === []) {
-            return back()->withErrors(['admin' => 'Vui lòng nhập ít nhất 1 trường cần cập nhật.']);
-        }
-
-        $response = $this->apiClient->put("admin/destinations/{$destinationId}", $payload);
-
-        return $this->handleActionResponse(
-            $response,
-            'Không thể cập nhật địa điểm.',
-            'Đã câp nhật địa điểm.'
-        );
+        return back()->with('status', 'Đã cập nhật destination.');
     }
 
-    /**
-     * Delete destination
-     */
-    public function deleteDestination(int $destinationId)
+    public function deleteDestination(int $id)
     {
-        $response = $this->apiClient->delete("admin/destinations/{$destinationId}");
+        $this->api()->delete("admin/destinations/{$id}");
 
-        return $this->handleActionResponse(
-            $response,
-            'Không thể xoá địa điểm.',
-            'Đã xoá địa điểm.'
-        );
+        return back()->with('status', 'Đã xóa destination.');
     }
 
-    private function handleActionResponse(array $response, string $fallbackError, string $successMessage)
+    public function bulkStoreDestinations(Request $request)
     {
-        if (request()->wantsJson()) {
-            return response()->json($response);
+        $data = $request->validate([
+            'payload' => 'required|string',
+        ]);
+        $items = json_decode($data['payload'], true);
+        if (! is_array($items)) {
+            return back()->withInput()->with('error', 'JSON không hợp lệ: cần mảng items.');
+        }
+        $body = $this->api()->post('admin/destinations/bulk', ['items' => array_values($items)]);
+        if (($body['_status'] ?? 500) !== 201) {
+            return back()->withInput()->with('error', $this->apiError($body, 'Bulk import thất bại.'));
         }
 
-        if (($response['success'] ?? false) === false) {
-            return back()->withErrors(['admin' => $response['error'] ?? $fallbackError])->withInput();
-        }
-
-        return back()->with('success', $successMessage);
+        return back()->with('status', 'Đã bulk import '.count($body['data'] ?? []).' destinations.');
     }
 
-    private function buildDestinationPayload(array $validated, Request $request): array
+    public function auditLogs(Request $request)
     {
-        $payload = [
-            'name' => $validated['name'] ?? null,
-            'slug' => $validated['slug'] ?? null,
-            'address' => $validated['address'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'price_level' => $validated['price_level'] ?? null,
-            'open_hour' => $validated['open_hour'] ?? null,
-            'img_url' => $validated['img_url'] ?? null,
-            'url_map' => $validated['url_map'] ?? null,
-            'lat' => $this->normalizeNumber($validated['lat'] ?? null),
-            'lng' => $this->normalizeNumber($validated['lng'] ?? null),
-            'status' => $validated['status'] ?? null,
-        ];
+        $page = max(1, (int) $request->input('page', 1));
+        $body = $this->api()->get('admin/audit-logs', ['page' => $page, 'limit' => 20]);
 
-        $categoryIds = $this->parseCategoryIds($request->input('category_ids'));
-        if ($categoryIds !== null) {
-            $payload['category_ids'] = $categoryIds;
-        }
-
-        return array_filter($payload, fn ($value) => $value !== null && $value !== '');
+        return view('admin.audit-logs', [
+            'logs' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? ['page' => $page, 'limit' => 20, 'total' => 0],
+        ]);
     }
 
-    private function parseCategoryIds($raw): ?array
+    public function activityRecommendations(string $slug, Request $request)
     {
-        if ($raw === null) {
-            return null;
+        $body = $this->api()->get("public/activities/{$slug}/recommendations", [
+            'page' => max(1, (int) $request->input('page', 1)),
+            'limit' => 10,
+            'budget_level' => $request->input('budget_level'),
+        ]);
+        if (($body['_status'] ?? 500) !== 200) {
+            abort(404);
         }
 
-        if (is_array($raw)) {
-            $ids = array_filter($raw, fn ($value) => is_numeric($value));
-            return array_map('intval', $ids);
-        }
-
-        if (is_string($raw)) {
-            $parts = preg_split('/[,\s]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
-            $ids = array_filter($parts, fn ($value) => is_numeric($value));
-            return array_map('intval', $ids);
-        }
-
-        return null;
-    }
-
-    private function normalizeNumber($value): ?float
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return (float) $value;
+        return view('activities.show', ['payload' => $body['data'] ?? []]);
     }
 }
