@@ -19,6 +19,7 @@ class ProfileController extends BaseController
         return view('favorites', [
             'destinations' => $body['data'] ?? [],
             'meta' => $body['meta'] ?? ['page' => $page, 'limit' => 20],
+            'favoriteIds' => $this->favoriteIds(),
         ]);
     }
 

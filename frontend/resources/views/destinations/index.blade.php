@@ -16,7 +16,7 @@
     </p>
     <div class="grid">
         @forelse ($destinations as $d)
-            <x-destination-card :destination="$d" />
+            <x-destination-card :destination="$d" :favorited="in_array($d['id'] ?? 0, $favoriteIds ?? [])" />
         @empty
             <p class="muted">Không tìm thấy địa điểm phù hợp.</p>
         @endforelse

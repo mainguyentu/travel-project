@@ -72,6 +72,9 @@ class Destination(Base):
     img_url = Column(Text, nullable=True)
     url_map = Column(Text, nullable=True)
     view_count = Column(BigInteger, nullable=False, default=0)
+    external_rating_avg = Column(Numeric(3, 2), nullable=False, default=0)
+    external_rating_count = Column(BigInteger, nullable=False, default=0)
+    external_source = Column(String(80), nullable=False, default="manual")
     status = Column(String(20), nullable=False, default="active")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -98,6 +101,15 @@ class DestinationInsight(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     destination = relationship("Destination", back_populates="insight")
+
+
+class UserView(Base):
+    __tablename__ = "user_views"
+
+    user_id = Column(IDType, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    destination_id = Column(IDType, ForeignKey("destinations.id", ondelete="CASCADE"), primary_key=True)
+    view_count = Column(Integer, nullable=False, default=1)
+    last_viewed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
 
 
 class Favorite(Base):

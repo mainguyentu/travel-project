@@ -10,6 +10,21 @@ from app.db.session import get_db
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def get_optional_user_id(request: Request) -> int | None:
+    """Trả về user_id nếu có Bearer access token hợp lệ, ngược lại None (public)."""
+    try:
+        auth = request.headers.get("authorization", "")
+        scheme, _, token = auth.partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            return None
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+        return int(payload["sub"])
+    except Exception:
+        return None
+
+
 def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),

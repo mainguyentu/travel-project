@@ -34,6 +34,9 @@ class DestinationCreate(BaseModel):
     lng: float | None = None
     status: str = Field(default="active", pattern="^(active|inactive)$")
     category_slugs: list[str] = Field(default_factory=list)
+    external_rating_avg: float | None = Field(default=None, ge=0, le=5)
+    external_rating_count: int | None = Field(default=None, ge=0)
+    external_source: str | None = Field(default=None, max_length=80)
 
 
 class DestinationUpdate(BaseModel):
@@ -49,6 +52,9 @@ class DestinationUpdate(BaseModel):
     lng: float | None = None
     status: str | None = Field(default=None, pattern="^(active|inactive)$")
     category_slugs: list[str] | None = None
+    external_rating_avg: float | None = Field(default=None, ge=0, le=5)
+    external_rating_count: int | None = Field(default=None, ge=0)
+    external_source: str | None = Field(default=None, max_length=80)
 
 
 class DestinationBulkCreate(BaseModel):

@@ -24,4 +24,27 @@ abstract class BaseController
     {
         return $body['error']['message'] ?? $fallback;
     }
+
+    /** IDs đã ♥ của user (để tô đỏ nút tim). Chưa login → mảng rỗng. */
+    protected function favoriteIds(): array
+    {
+        if (! session('access_token')) {
+            return [];
+        }
+        try {
+            $ids = [];
+            $page = 1;
+            do {
+                $body = $this->api()->get('me/favorites', ['page' => $page, 'limit' => 100]);
+                foreach ($body['data'] ?? [] as $d) {
+                    $ids[] = $d['id'];
+                }
+                $total = $body['meta']['total'] ?? count($ids);
+                $page++;
+            } while (count($ids) < $total && $page <= 10);
+            return $ids;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
 }

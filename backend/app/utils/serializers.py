@@ -35,6 +35,9 @@ def destination_to_dict(
         "img_url": d.img_url,
         "url_map": d.url_map,
         "view_count": d.view_count,
+        "external_rating_avg": float(d.external_rating_avg or 0),
+        "external_rating_count": int(d.external_rating_count or 0),
+        "external_source": d.external_source or "manual",
         "status": d.status,
     }
     if categories is not None:

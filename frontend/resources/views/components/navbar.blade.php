@@ -11,6 +11,7 @@
             <a href="{{ route('home') }}">Trang chủ</a>
             <a href="{{ route('destinations.index') }}">Điểm đến</a>
             @if (session('access_token'))
+                <a href="{{ route('recommendations.index') }}">Gợi ý</a>
                 <a href="{{ route('favorites.index') }}">Yêu thích</a>
                 <a href="{{ route('profile.index') }}">Hồ sơ</a>
                 @if (session('is_admin'))
@@ -32,6 +33,7 @@
         <a href="{{ route('home') }}">Trang chủ</a>
         <a href="{{ route('destinations.index') }}">Điểm đến</a>
         @if (session('access_token'))
+            <a href="{{ route('recommendations.index') }}">Gợi ý</a>
             <a href="{{ route('favorites.index') }}">Yêu thích</a>
             <a href="{{ route('profile.index') }}">Hồ sơ</a>
             @if (session('is_admin'))

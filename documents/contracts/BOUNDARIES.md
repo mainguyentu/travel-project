@@ -15,6 +15,8 @@ Contract docs: `BE-API-0.1.0.md` (T5), `FE-0.1.0.md` (T6) — to be written.
 | B8 | Services → Kafka topics (`favorite|rating|destination|view-events`, DLQ) | interaction/admin/destination services | worker-service | Unassigned (U4) | code: `app/core/events.py`, `app/core/kafka_bus.py` (no versioned doc yet — gap) | `backend/app/worker/{consumer,handlers}.py` |
 | B9 | Worker → Elasticsearch (`travel_destinations` index) | worker-service | elasticsearch | Unassigned (U4) | code: `app/core/search.py` (no versioned doc yet — gap) | `backend/app/worker/handlers.py` |
 | B10 | Inter-service HTTP (`/internal/destinations/*`, `/internal/admin/*`) | destination/auth services | interaction/admin services | Unassigned (U4) | code: `app/routers/internal_*.py` (no versioned doc yet — gap) | `backend/app/routers/internal_*.py` |
+| B11 | User → Recommendation engine (`/me/recommendations`, `/me/itinerary`) | `RecommendationService` (reads `destination_insights.final_data`) | authenticated user | `BE-API-1.3.0.md` §2.3/2.4 | `backend/app/services/recommendation.py`, `routers/interaction.py` |
+| B12 | Admin bulk → external rating (`external_*` fields) | admin-service | admin user (bulk JSON tay) | `BE-API-1.3.0.md` §2.1 | `schemas/admin.py`, `services/admin.py`, migration `f7a2c9d1e3b4` |
 
 Notes:
 - Identity context (XSTD-001-R005): JWT Bearer; backend enforces via

@@ -74,3 +74,71 @@ def get_rating(destination_id: int, request: Request, db: Session = Depends(get_
     rating = service.get_rating(current_user.id, destination_id)
     data = None if not rating else {"destination_id": rating.destination_id, "rating_score": rating.rating_score, "comment": rating.comment}
     return response_success(data, {"request_id": request.state.request_id})
+
+
+def _rec_item(s: dict) -> dict:
+    d = destination_to_dict(s["destination"], categories=None)
+    d["categories"] = s["categories"]
+    return {
+        "destination": d,
+        "match": s["match"],
+        "reasons": s["reasons"],
+        "components": s["components"],
+    }
+
+
+def _profile_out(p: dict) -> dict:
+    return {
+        "top_categories": p["top_categories"],
+        "preferred_price": p["preferred_price"],
+        "is_new": p["is_new"],
+    }
+
+
+@router.get("/recommendations")
+def recommendations(
+    request: Request,
+    limit: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.recommendation import RecommendationService
+
+    service = RecommendationService(db)
+    rec = service.recommendations(current_user.id, limit)
+    return response_success(
+        {
+            "matched": [_rec_item(s) for s in rec["matched"]],
+            "explore": [_rec_item(s) for s in rec["explore"]],
+            "profile": _profile_out(rec["profile"]),
+        },
+        {"request_id": request.state.request_id},
+    )
+
+
+@router.get("/itinerary")
+def itinerary(
+    request: Request,
+    limit: int = Query(default=5, ge=1, le=10),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.recommendation import RecommendationService
+
+    service = RecommendationService(db)
+    plan = service.itinerary(current_user.id, limit)
+    items = []
+    for it in plan["itinerary"]:
+        cats = service.repo.categories_for(it["destination"].id)
+        d = destination_to_dict(it["destination"], categories=cats)
+        items.append({
+            "order": it["order"],
+            "destination": d,
+            "match": it["match"],
+            "reasons": it["reasons"],
+            "slot": it["slot"],
+        })
+    return response_success(
+        {"itinerary": items, "total_match": plan["total_match"], "profile": _profile_out(plan["profile"])},
+        {"request_id": request.state.request_id},
+    )

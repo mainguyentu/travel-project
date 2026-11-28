@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
 
+from app.core.deps import get_optional_user_id
 from app.core.errors import AppError
 from app.core.responses import response_success
 from app.db.session import get_db
@@ -69,6 +70,10 @@ def detail(destination_id: int, request: Request, db: Session = Depends(get_db))
     if not destination or destination.status != "active":
         raise AppError("NOT_FOUND", "Destination not found", 404)
     repo.increment_view(destination_id)
+    try:
+        repo.record_user_view(get_optional_user_id(request), destination_id)
+    except Exception:
+        pass
     db.commit()
     db.refresh(destination)
     event_bus.publish("destination.viewed", {"destination_id": destination_id})

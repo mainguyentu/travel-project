@@ -25,6 +25,7 @@ Route::middleware('session.auth')->group(function () {
     Route::post('/favorites/{id}', [ProfileController::class, 'addFavorite'])->name('favorites.add');
     Route::delete('/favorites/{id}', [ProfileController::class, 'removeFavorite'])->name('favorites.remove');
     Route::put('/ratings/{id}', [ProfileController::class, 'rate'])->name('ratings.store');
+    Route::get('/recommendations', [\App\Http\Controllers\RecommendationController::class, 'index'])->name('recommendations.index');
 });
 
 Route::middleware('session.admin')->prefix('admin')->name('admin.')->group(function () {

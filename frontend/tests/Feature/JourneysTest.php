@@ -55,6 +55,65 @@ class JourneysTest extends TestCase
         $this->withSession($session)->delete('/favorites/7')->assertRedirect();
     }
 
+    public function test_recommendations_page_renders_matched_explore_itinerary(): void
+    {
+        $rec = [
+            'success' => true,
+            'data' => [
+                'matched' => [[
+                    'destination' => ['id' => 1, 'name' => 'Biển Xanh', 'slug' => 'bien-xanh',
+                        'price_level' => 'free', 'view_count' => 10,
+                        'external_rating_avg' => 4.6, 'external_rating_count' => 100, 'external_source' => 'google_maps'],
+                    'match' => 78.5, 'reasons' => ['Hợp gu bien'], 'components' => [],
+                ]],
+                'explore' => [[
+                    'destination' => ['id' => 2, 'name' => 'Núi Cao', 'slug' => 'nui-cao',
+                        'price_level' => 'low', 'view_count' => 5,
+                        'external_rating_avg' => 4.2, 'external_rating_count' => 50, 'external_source' => 'google_maps'],
+                    'match' => 45.0, 'reasons' => ['Thử trải nghiệm mới'], 'components' => [],
+                ]],
+                'profile' => ['top_categories' => ['bien' => 1.0], 'preferred_price' => 'free', 'is_new' => false],
+            ],
+        ];
+        Http::fake([
+            '*/me/recommendations*' => Http::response($rec, 200),
+            '*/me/itinerary*' => Http::response(['success' => true, 'data' => [
+                'itinerary' => [[
+                    'order' => 1, 'match' => 78.5, 'reasons' => ['Hợp gu bien'], 'slot' => 'sáng',
+                    'destination' => ['id' => 1, 'name' => 'Biển Xanh'],
+                ]],
+                'total_match' => 78.5,
+                'profile' => ['top_categories' => [], 'preferred_price' => null, 'is_new' => false],
+            ]], 200),
+        ]);
+
+        $this->withSession(['access_token' => 'a'])->get('/recommendations')
+            ->assertOk()
+            ->assertSee('Đề xuất')
+            ->assertSee('Biển Xanh')
+            ->assertSee('Núi Cao')
+            ->assertSee('fav-heart', false)
+            ->assertSee('buổi sáng');
+    }
+
+    public function test_fav_heart_shows_red_when_favorited_gray_otherwise(): void
+    {
+        Http::fake([
+            '*/me/favorites*' => Http::response([
+                'success' => true, 'data' => [['id' => 7]], 'meta' => ['page' => 1, 'limit' => 100, 'total' => 1],
+            ], 200),
+            '*/public/landing' => Http::response(['success' => true, 'data' => [
+                'highlights' => [['id' => 7, 'name' => 'Fav Island', 'slug' => 'fav-island']],
+                'categories' => [], 'top_ratings' => [], 'top_favorites' => [],
+            ]], 200),
+        ]);
+
+        $this->withSession(['access_token' => 'a'])->get('/')
+            ->assertOk()
+            ->assertSee('fav-heart is-fav', false)
+            ->assertSee('Bỏ yêu thích');
+    }
+
     public function test_rating_validation_blocks_out_of_range(): void
     {
         $this->withSession(['access_token' => 'a'])

@@ -33,15 +33,23 @@ def build_insight(db, destination_id: int) -> dict:
         return {"status": "missing"}
     fav_count = repo.favorite_count(destination_id)
     rating_count, rating_sum = repo.rating_stats(destination_id)
+    # Rating tổng hợp từ nguồn chính thống (nhập tay qua admin bulk).
+    ext_avg = float(dest.external_rating_avg or 0)
+    ext_count = int(dest.external_rating_count or 0)
+    if ext_count > 0:
+        rating_count, rating_sum = ext_count, round(ext_avg * ext_count, 2)
+        avg = round(ext_avg, 2)
+    else:
+        avg = float(dest.rating_avg or 0)
     cats = [c.slug for c in repo.categories_for(destination_id)]
-    avg = float(dest.rating_avg or 0)
     if rating_count == 0 and fav_count == 0 and dest.view_count < 10:
         status = "insufficient_data"
         summary = ""
     else:
         status = "ok"
+        src = f" ({dest.external_source})" if ext_count > 0 else ""
         summary = (
-            f"{dest.name}: {rating_count} ratings (avg {avg}), "
+            f"{dest.name}: {rating_count} ratings{src} (avg {avg}), "
             f"{fav_count} favorites, {dest.view_count} views."
         )
     return {
@@ -50,6 +58,7 @@ def build_insight(db, destination_id: int) -> dict:
         "rating_avg": avg,
         "rating_count": rating_count,
         "rating_sum": rating_sum,
+        "rating_source": dest.external_source if ext_count > 0 else "internal",
         "favorite_count": fav_count,
         "view_count": dest.view_count,
         "categories": cats,
