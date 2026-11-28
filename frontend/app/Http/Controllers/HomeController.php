@@ -11,6 +11,6 @@ class HomeController extends BaseController
         $body = $this->api()->get('public/landing');
         $landing = $body['data'] ?? ['highlights' => [], 'categories' => [], 'top_ratings' => [], 'top_favorites' => []];
 
-        return view('home', ['landing' => $landing]);
+        return view('home', ['landing' => $landing, 'favoriteIds' => $this->favoriteIds()]);
     }
 }

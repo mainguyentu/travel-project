@@ -37,7 +37,7 @@
         </div>
         <div class="grid">
             @foreach ($landing['highlights'] ?? [] as $d)
-                <x-destination-card :destination="$d" />
+                <x-destination-card :destination="$d" :favorited="in_array($d['id'] ?? 0, $favoriteIds ?? [])" />
             @endforeach
         </div>
     </section>
@@ -49,7 +49,7 @@
         </div>
         <div class="grid">
             @foreach ($landing['top_ratings'] ?? [] as $d)
-                <x-destination-card :destination="$d" />
+                <x-destination-card :destination="$d" :favorited="in_array($d['id'] ?? 0, $favoriteIds ?? [])" />
             @endforeach
         </div>
     </section>
@@ -69,10 +69,17 @@
         </div>
         <div class="grid">
             @foreach ($landing['top_favorites'] ?? [] as $d)
-                <x-destination-card :destination="$d" />
+                <x-destination-card :destination="$d" :favorited="in_array($d['id'] ?? 0, $favoriteIds ?? [])" />
             @endforeach
         </div>
         <x-destination-detail-modal />
     </section>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+// Trang chủ cũng cần API_BASE cho modal chi tiết (như destinations/index).
+window.API_BASE = @json(url('/api/v1'));
+</script>
+@endpush

@@ -8,6 +8,7 @@ from app.db.models import (
     DestinationInsight,
     Favorite,
     Rating,
+    UserView,
 )
 
 
@@ -61,6 +62,29 @@ class DestinationRepository:
         self.db.query(Destination).filter_by(id=destination_id).update(
             {Destination.view_count: Destination.view_count + 1}
         )
+
+    def record_user_view(self, user_id: int | None, destination_id: int) -> None:
+        """Ghi thói quen xem per-user (fire-and-forget từ detail)."""
+        if not user_id:
+            return
+        from datetime import datetime, timezone
+
+        row = self.db.get(UserView, (user_id, destination_id))
+        if row:
+            row.view_count = int(row.view_count or 0) + 1
+            row.last_viewed_at = datetime.now(timezone.utc)
+        else:
+            self.db.add(UserView(user_id=user_id, destination_id=destination_id, view_count=1))
+
+    def user_profile_signals(self, user_id: int) -> dict:
+        """Tín hiệu thô cho recommendation: favorites + views per-user (kèm categories)."""
+        fav_ids = list(
+            self.db.scalars(select(Favorite.destination_id).where(Favorite.user_id == user_id)).all()
+        )
+        view_rows = list(
+            self.db.scalars(select(UserView).where(UserView.user_id == user_id)).all()
+        )
+        return {"favorite_ids": fav_ids, "views": {r.destination_id: int(r.view_count or 1) for r in view_rows}}
 
     def top_favorites(self, limit=6, from_date=None, to_date=None) -> list:
         join_cond = Favorite.destination_id == Destination.id

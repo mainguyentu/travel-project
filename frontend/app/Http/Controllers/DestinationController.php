@@ -21,6 +21,7 @@ class DestinationController extends BaseController
             'meta' => $body['meta'] ?? ['page' => 1, 'limit' => 15, 'total' => 0],
             'filters' => $filters['data']['categories'] ?? [],
             'query' => $request->only(['category_slug', 'price_level', 'rating_min', 'keyword', 'sort']),
+            'favoriteIds' => $this->favoriteIds(),
         ]);
     }
 }

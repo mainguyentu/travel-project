@@ -31,6 +31,16 @@ document.addEventListener('click', (event) => {
     }
 });
 
+// ESC đóng popup chi tiết (không cần bấm Đóng).
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('destination-modal');
+        if (modal && !modal.hidden) {
+            modal.hidden = true;
+        }
+    }
+});
+
 function textRow(parent, label, value) {
     const p = document.createElement('p');
     const strong = document.createElement('strong');
@@ -56,15 +66,35 @@ function renderDetail(content, d) {
     const h = document.createElement('h2');
     h.textContent = d.name || '';
     content.appendChild(h);
+    // Khối điểm tổng hợp ★ + nguồn (thay form chấm điểm cá nhân).
+    const box = document.createElement('div');
+    box.className = 'rating-summary';
+    const extCount = Number(d.external_rating_count || 0);
+    const ins = d.insight || {};
+    const avg = extCount > 0 ? Number(d.external_rating_avg || 0) : Number(ins.rating_avg ?? d.rating_avg ?? 0);
+    const cnt = extCount > 0 ? extCount : Number(ins.rating_count ?? (d.metrics && d.metrics.rating_count) ?? 0);
+    let src = 'đánh giá trên trang';
+    if (extCount > 0) {
+        const raw = d.external_source || 'manual';
+        src = raw === 'google_maps' ? 'Google Maps' : String(raw).replace(/_/g, ' ');
+    }
+    const strong = document.createElement('strong');
+    strong.textContent = `★ ${avg.toFixed(1)} (${cnt.toLocaleString('vi-VN')} đánh giá · ${src})`;
+    box.appendChild(strong);
+    if (!extCount && ins.status && ins.status !== 'ok') {
+        const note = document.createElement('div');
+        note.textContent = 'Ít dữ liệu — tham khảo thêm trước khi đi.';
+        box.appendChild(note);
+    }
+    content.appendChild(box);
     textRow(content, 'Địa chỉ', d.address);
     textRow(content, 'Mô tả', d.description);
     textRow(content, 'Mức giá', d.price_level);
-    textRow(content, 'Rating', String(d.rating_avg ?? 0));
     textRow(content, 'Lượt xem', String(d.view_count ?? 0));
     if (d.insight && d.insight.summary) {
         textRow(content, 'Insight', d.insight.summary);
     }
-    if (d.metrics && (d.metrics.favorite_count || d.metrics.rating_count)) {
+    if (d.metrics && d.metrics.favorite_count) {
         textRow(content, 'Yêu thích', String(d.metrics.favorite_count ?? 0));
     }
 }

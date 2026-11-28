@@ -11,13 +11,13 @@
     <div class="grid">
         @forelse ($destinations as $d)
             <div>
-                <x-destination-card :destination="$d" />
+                <x-destination-card :destination="$d" :favorited="true" />
                 <form method="POST" action="{{ route('favorites.remove', ['id' => $d['id']]) }}" class="inline-form">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="link-btn">Bỏ yêu thích</button>
                 </form>
-                <x-rating-form :destinationId="$d['id']" />
+                <x-rating-summary :destination="$d" />
             </div>
         @empty
             <p>Chưa có địa điểm yêu thích nào. <a href="{{ route('destinations.index') }}">Khám phá ngay</a>.</p>
